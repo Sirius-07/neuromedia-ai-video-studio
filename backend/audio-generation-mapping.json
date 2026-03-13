@@ -1,0 +1,59 @@
+{
+  "videoUrl": "https://1926289158.tos-cn-guangzhou.volces.com/a1.mp4",
+  "generatedAt": "2025-11-20T02:06:15.201Z",
+  "successCount": 5,
+  "failCount": 0,
+  "audioFiles": [
+    {
+      "index": 1,
+      "timestamp": "00:00:06.000",
+      "category": "转场音效",
+      "description": "镜头从建筑场景淡入到剪彩仪式场景，增强场景过渡的流畅感",
+      "prompt": "soft fade transition sound effect",
+      "duration": 1,
+      "outputFile": "sfx_1_soft_fade_transition_sound_eff_1763604282535.wav",
+      "outputPath": "F:\\AIEditing\\backend\\uploads\\audio\\sfx_1_soft_fade_transition_sound_eff_1763604282535.wav"
+    },
+    {
+      "index": 2,
+      "timestamp": "00:00:08.500",
+      "category": "强调音效",
+      "description": "剪彩仪式中人物剪断彩带的动作，强调活动的关键仪式时刻",
+      "prompt": "ribbon cutting sound effect",
+      "duration": 1,
+      "outputFile": "sfx_2_ribbon_cutting_sound_effect_1763604282535.wav",
+      "outputPath": "F:\\AIEditing\\backend\\uploads\\audio\\sfx_2_ribbon_cutting_sound_effect_1763604282535.wav"
+    },
+    {
+      "index": 3,
+      "timestamp": "00:00:13.000",
+      "category": "转场音效",
+      "description": "镜头从剪彩仪式场景快速切换到工厂外景雕塑场景，增强场景切换的节奏感",
+      "prompt": "smooth whoosh transition sound effect",
+      "duration": 1,
+      "outputFile": "sfx_3_smooth_whoosh_transition_sound_1763604282535.wav",
+      "outputPath": "F:\\AIEditing\\backend\\uploads\\audio\\sfx_3_smooth_whoosh_transition_sound_1763604282535.wav"
+    },
+    {
+      "index": 4,
+      "timestamp": "00:00:19.500",
+      "category": "转场音效",
+      "description": "镜头从工厂外景场景滑动转场到文字说明卡片，提升信息展示的过渡效果",
+      "prompt": "light slide transition sound effect",
+      "duration": 1,
+      "outputFile": "sfx_4_light_slide_transition_sound_e_1763604282535.wav",
+      "outputPath": "F:\\AIEditing\\backend\\uploads\\audio\\sfx_4_light_slide_transition_sound_e_1763604282535.wav"
+    },
+    {
+      "index": 5,
+      "timestamp": "00:00:26.000",
+      "category": "转场音效",
+      "description": "镜头从文字说明卡片转场到南都N视频logo场景，强化结尾品牌展示的过渡",
+      "prompt": "gentle pop transition sound effect",
+      "duration": 1,
+      "outputFile": "sfx_5_gentle_pop_transition_sound_ef_1763604282535.wav",
+      "outputPath": "F:\\AIEditing\\backend\\uploads\\audio\\sfx_5_gentle_pop_transition_sound_ef_1763604282535.wav"
+    }
+  ],
+  "errors": []
+}

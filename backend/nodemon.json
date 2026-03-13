@@ -1,0 +1,35 @@
+{
+  "watch": ["src"],
+  "ext": "js,json",
+  "ignore": [
+    "uploads/**",
+    "audio-generation-tasks.json",
+    "audio-generation-tasks_results.json",
+    "latest-audio-generation.json",
+    "audio-generation-mapping.json",
+    "node_modules/**",
+    "prisma/**/*.db"
+  ],
+  "exec": "node src/index.js"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalStorage 调试工具</title>
+  <style>
+    body {
+      font-family: 'Consolas', 'Monaco', monospace;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      padding: 20px;
+      margin: 0;
+    }
+    h1 {
+      color: #4CAF50;
+    }
+    .section {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .section h2 {
+      margin-top: 0;
+      color: #2196F3;
+    }
+    pre {
+      background: #1a1a1a;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 10px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .key {
+      color: #9C27B0;
+      font-weight: bold;
+    }
+    .value {
+      color: #4CAF50;
+    }
+    button {
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #1976D2;
+    }
+    button.danger {
+      background: #f44336;
+    }
+    button.danger:hover {
+      background: #d32f2f;
+    }
+    .empty {
+      color: #999;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 LocalStorage 调试工具</h1>
+  
+  <div class="section">
+    <h2>快速操作</h2>
+    <button onclick="refreshData()">🔄 刷新数据</button>
+    <button onclick="exportData()">💾 导出JSON</button>
+    <button class="danger" onclick="clearAll()">🗑️ 清除所有数据</button>
+  </div>
+
+  <div class="section">
+    <h2>📦 项目级别存储</h2>
+    <div id="project-storage"></div>
+  </div>
+
+  <div class="section">
+    <h2>🎬 场景级别存储</h2>
+    <div id="scene-storage"></div>
+  </div>
+
+  <div class="section">
+    <h2>📊 统计信息</h2>
+    <div id="stats"></div>
+  </div>
+
+  <script>
+    function refreshData() {
+      displayProjectStorage();
+      displaySceneStorage();
+      displayStats();
+    }
+
+    function displayProjectStorage() {
+      const container = document.getElementById('project-storage');
+      const projectKey = 'current_storyboard_project';
+      const data = localStorage.getItem(projectKey);
+      
+      if (!data) {
+        container.innerHTML = '<p class="empty">没有项目数据</p>';
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(data);
+        container.innerHTML = `
+          <p><span class="key">Key:</span> <span class="value">${projectKey}</span></p>
+          <p><span class="key">项目ID:</span> <span class="value">${parsed.projectId || 'N/A'}</span></p>
+          <p><span class="key">标题:</span> <span class="value">${parsed.title || 'N/A'}</span></p>
+          <p><span class="key">场景数量:</span> <span class="value">${parsed.scenes?.length || 0}</span></p>
+          <p><span class="key">最后修改:</span> <span class="value">${parsed.lastModified || 'N/A'}</span></p>
+          <p><span class="key">有图片的场景:</span> <span class="value">${parsed.scenes?.filter(s => s.assetUrl).length || 0}</span></p>
+          <p><span class="key">有视频的场景:</span> <span class="value">${parsed.scenes?.filter(s => s.videoUrl).length || 0}</span></p>
+          <details>
+            <summary style="cursor: pointer; color: #2196F3;">📄 查看完整JSON</summary>
+            <pre>${JSON.stringify(parsed, null, 2)}</pre>
+          </details>
+        `;
+      } catch (e) {
+        container.innerHTML = `<p style="color: #f44336;">❌ 解析失败: ${e.message}</p>`;
+      }
+    }
+
+    function displaySceneStorage() {
+      const container = document.getElementById('scene-storage');
+      let html = '';
+      let foundCount = 0;
+
+      for (let i = 1; i <= 20; i++) {
+        const key = `scene_${i}_gen_state`;
+        const data = localStorage.getItem(key);
+        
+        if (data) {
+          foundCount++;
+          try {
+            const parsed = JSON.parse(data);
+            html += `
+              <div style="border: 1px solid #444; padding: 10px; margin: 10px 0; border-radius: 4px;">
+                <p><span class="key">场景 ${i}</span></p>
+                <p><span class="key">生成图片数量:</span> <span class="value">${parsed.generatedImages?.length || 0}</span></p>
+                <p><span class="key">选中首帧:</span> <span class="value">${parsed.assetUrl ? '✅ 是' : '❌ 否'}</span></p>
+                <p><span class="key">生成视频:</span> <span class="value">${parsed.generatedVideoUrl ? '✅ 是' : '❌ 否'}</span></p>
+                <p><span class="key">视频时长:</span> <span class="value">${parsed.videoDuration || 'N/A'}秒</span></p>
+                <p><span class="key">视频模型:</span> <span class="value">${parsed.videoModel || 'N/A'}</span></p>
+                <details>
+                  <summary style="cursor: pointer; color: #2196F3;">📄 查看完整JSON</summary>
+                  <pre>${JSON.stringify(parsed, null, 2)}</pre>
+                </details>
+              </div>
+            `;
+          } catch (e) {
+            html += `<p style="color: #f44336;">场景 ${i}: 解析失败</p>`;
+          }
+        }
+      }
+
+      if (foundCount === 0) {
+        html = '<p class="empty">没有找到场景数据</p>';
+      } else {
+        html = `<p>找到 <span class="value">${foundCount}</span> 个场景的数据</p>` + html;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function displayStats() {
+      const container = document.getElementById('stats');
+      const total = localStorage.length;
+      let size = 0;
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const value = localStorage.getItem(key);
+        size += key.length + (value?.length || 0);
+      }
+
+      container.innerHTML = `
+        <p><span class="key">总键值对数量:</span> <span class="value">${total}</span></p>
+        <p><span class="key">估计大小:</span> <span class="value">${(size / 1024).toFixed(2)} KB</span></p>
+        <p><span class="key">剩余空间:</span> <span class="value">约 ${(5 * 1024 - size / 1024).toFixed(2)} KB</span> (浏览器限制约5MB)</p>
+      `;
+    }
+
+    function exportData() {
+      const data = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        try {
+          data[key] = JSON.parse(localStorage.getItem(key));
+        } catch (e) {
+          data[key] = localStorage.getItem(key);
+        }
+      }
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `localStorage_backup_${new Date().toISOString()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      alert('✅ 数据已导出');
+    }
+
+    function clearAll() {
+      if (confirm('⚠️ 确定要清除所有 localStorage 数据吗？此操作不可撤销！')) {
+        localStorage.clear();
+        alert('✅ 已清除所有数据');
+        refreshData();
+      }
+    }
+
+    // 页面加载时自动刷新数据
+    refreshData();
+
+    // 每5秒自动刷新一次
+    setInterval(refreshData, 5000);
+  </script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,96 @@
+# 依赖包
+node_modules/
+**/node_modules/
+
+# 环境变量（含 API Key，绝对不能上传）
+.env
+**/.env
+!.env.example
+
+# 数据库文件
+*.db
+*.db-journal
+backend/prisma/dev.db
+backend/prisma/migrations/
+
+# 编译产物
+dist/
+build/
+frontend/dist/
+
+# 日志文件
+*.log
+backend/server.log
+backend/debug-*.log
+
+# 上传的媒体文件（体积过大）
+backend/uploads/
+backend/output/
+
+# ComfyUI 输出（本地路径）
+# 这些由本地 ComfyUI 生成，不纳入版本控制
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Python 虚拟环境
+venv/
+env/
+.venv/
+.env/
+index-tts/venv/
+index-tts/.venv/
+
+# 第三方工具目录（有独立git仓库，体积过大）
+index-tts/
+stable-audio/stable-audio-tools/
+
+# 模型权重文件（体积极大，不上传）
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.gguf
+*.onnx
+
+# 测试产生的临时文件
+backend/direct-api-result.json
+backend/latest-audio-generation.json
+backend/a.json
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE 配置
+.vscode/settings.json
+.idea/
+
+# 视频测试素材（根目录）
+*.mp4
+*.mov
+*.avi
+conical_helix.png
+
+# 备份文件
+*.backup
+*.broken
+*.broken2
+
+# stable-audio 模型和音频文件（过大）
+stable-audio/stable-audio-tools/models/
+stable-audio/**/*.pt
+stable-audio/**/*.ckpt
+stable-audio/*.wav
+stable-audio/**/*.wav

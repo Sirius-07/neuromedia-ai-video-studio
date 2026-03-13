@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>轻量视频编辑器 - Vue Demo</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #fff;
+    }
+
+    .lite-editor-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 20px;
+    }
+
+    .video-section {
+      position: relative;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 12px;
+      background: #000;
+    }
+
+    .progress-bar {
+      margin-top: 10px;
+      padding: 8px;
+      background: #2b2b2b;
+      border-radius: 6px;
+      text-align: center;
+      font-family: monospace;
+      font-size: 18px;
+    }
+
+    .control-panel {
+      background: #222;
+      border-radius: 12px;
+      padding: 20px;
+      overflow-y: auto;
+      max-height: 80vh;
+    }
+
+    .card {
+      background: #2b2b2b;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .card-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .icon {
+      font-size: 20px;
+    }
+
+    .card-body label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin-bottom: 12px;
+    }
+
+    .style-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .style-tags button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      background: #3a3a3a;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .style-tags button:hover {
+      background: #4a4a4a;
+      transform: translateY(-2px);
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #444;
+      margin: 20px 0;
+    }
+
+    .sfx-feed-list h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .hint {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    .sfx-item-card {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      border-radius: 8px;
+      background: #2b2b2b;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-left: 4px solid transparent;
+    }
+
+    .sfx-item-card:hover {
+      background: #333;
+    }
+
+    .sfx-item-card.playing-now {
+      background: #3A3A50;
+      border-left-color: #a855f7;
+    }
+
+    .time-badge {
+      font-family: monospace;
+      color: #888;
+      margin-right: 12px;
+      font-size: 14px;
+      min-width: 50px;
+    }
+
+    .sfx-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sfx-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .sfx-scene-tag {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .sfx-action {
+      margin-left: 12px;
+    }
+
+    .toggle-switch {
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-switch input {
+      display: none;
+    }
+
+    .toggle-slider {
+      position: relative;
+      width: 50px;
+      height: 24px;
+      background: #555;
+      border-radius: 12px;
+      transition: background 0.3s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.3s;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background: #a855f7;
+    }
+
+    .toggle-switch input:checked + .toggle-slider::before {
+      transform: translateX(26px);
+    }
+
+    .toggle-text {
+      margin-left: 8px;
+      font-size: 12px;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const { createApp } = Vue;
+
+    // Toggle Switch 组件
+    const ToggleSwitch = {
+      props: {
+        modelValue: Boolean,
+        activeText: { type: String, default: '开启' },
+        inactiveText: { type: String, default: '关闭' }
+      },
+      emits: ['update:modelValue'],
+      template: `
+        <label class="toggle-switch">
+          <input 
+            type="checkbox" 
+            :checked="modelValue"
+            @change="$emit('update:modelValue', $event.target.checked)"
+          >
+          <span class="toggle-slider"></span>
+          <span class="toggle-text">{{ modelValue ? activeText : inactiveText }}</span>
+        </label>
+      `
+    };
+
+    // 主应用组件
+    const App = {
+      components: {
+        'toggle-switch': ToggleSwitch
+      },
+      data() {
+        return {
+          currentTime: 0,
+          videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4', // 示例视频
+          
+          bgmInfo: {
+            url: 'generated_bgm.wav',
+            style: 'Inspiring Orchestral',
+            volume: 80
+          },
+
+          sfxList: [
+            { 
+              id: 101, 
+              startTime: 2.0, 
+              endTime: 2.5, 
+              description: '转场：咻声', 
+              sceneMatch: '画面切换', 
+              isEnabled: true 
+            },
+            { 
+              id: 102, 
+              startTime: 6.0, 
+              endTime: 8.0, 
+              description: '键盘打字声', 
+              sceneMatch: '办公室特写', 
+              isEnabled: true 
+            },
+            { 
+              id: 103, 
+              startTime: 26.5, 
+              endTime: 28.0, 
+              description: 'Logo展示重音', 
+              sceneMatch: '结尾', 
+              isEnabled: true 
+            }
+          ]
+        };
+      },
+      computed: {
+        sortedSfxList() {
+          return [...this.sfxList].sort((a, b) => a.startTime - b.startTime);
+        }
+      },
+      methods: {
+        updateCurrentTime(event) {
+          this.currentTime = event.target.currentTime;
+        },
+        
+        seekVideoTo(time) {
+          this.$refs.videoPlayer.currentTime = time;
+          this.$refs.videoPlayer.play();
+        },
+        
+        isCurrentPlaying(sfx) {
+          return this.currentTime >= sfx.startTime && this.currentTime <= sfx.endTime;
+        },
+
+        regenerateBGM(style) {
+          console.log('AI正在重新生成风格为 ' + style + ' 的BGM...');
+          alert('正在生成 ' + style + ' 风格的BGM...');
+        },
+
+        formatTime(seconds) {
+          const mins = Math.floor(seconds / 60);
+          const secs = Math.floor(seconds % 60);
+          return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+      },
+      template: `
+        <div class="lite-editor-container">
+          <div class="video-section">
+            <video 
+              ref="videoPlayer" 
+              :src="videoUrl"
+              @timeupdate="updateCurrentTime"
+              controls
+            ></video>
+            <div class="progress-bar">{{ formatTime(currentTime) }}</div>
+          </div>
+
+          <div class="control-panel">
+            <div class="card bgm-card">
+              <div class="card-header">
+                <span class="icon">🎵</span> 
+                <h3>背景音乐：{{ bgmInfo.style }}</h3>
+              </div>
+              
+              <div class="card-body">
+                <label>氛围强度 (音量): {{ bgmInfo.volume }}%</label>
+                <input type="range" v-model="bgmInfo.volume" min="0" max="100">
+                
+                <div class="style-tags">
+                  <button @click="regenerateBGM('cheerful')">✨ 欢快</button>
+                  <button @click="regenerateBGM('tech')">🤖 科技</button>
+                  <button @click="regenerateBGM('cinematic')">🎬 电影感</button>
+                </div>
+              </div>
+            </div>
+
+            <hr class="divider">
+
+            <div class="sfx-feed-list">
+              <h3>✨ 精彩时刻音效</h3>
+              <p class="hint">点击卡片跳转预览，不需要的音效直接关闭</p>
+
+              <div 
+                v-for="sfx in sortedSfxList" 
+                :key="sfx.id"
+                class="sfx-item-card"
+                :class="{ 'playing-now': isCurrentPlaying(sfx) }"
+                @click="seekVideoTo(sfx.startTime)"
+              >
+                <div class="time-badge">
+                  {{ formatTime(sfx.startTime) }}
+                </div>
+
+                <div class="sfx-info">
+                  <span class="sfx-name">{{ sfx.description }}</span>
+                  <span class="sfx-scene-tag">场景: {{ sfx.sceneMatch }}</span>
+                </div>
+
+                <div class="sfx-action" @click.stop>
+                  <toggle-switch 
+                    v-model="sfx.isEnabled" 
+                    active-text="保留" 
+                    inactive-text="移除"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+    createApp(App).mount('#app');
+  </script>
+</body>
+</html>
+

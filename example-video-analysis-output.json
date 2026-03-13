@@ -1,0 +1,79 @@
+{
+  "background_music": {
+    "prompt": "upbeat electronic music, modern and energetic, tech presentation style with corporate vibes",
+    "mood": "upbeat",
+    "genre": "electronic",
+    "duration": 15.5,
+    "startTime": "00:00:00.000",
+    "volume": 0.6
+  },
+  "sound_effects": [
+    {
+      "prompt": "smooth swipe transition swoosh sound effect",
+      "timestamp": "00:00:02.500",
+      "description": "视频开场，镜头从黑屏淡入到第一个画面",
+      "category": "转场音效",
+      "duration": 1.0,
+      "volume": 0.75
+    },
+    {
+      "prompt": "digital notification ding sound effect",
+      "timestamp": "00:00:04.200",
+      "description": "标题文字出现并定格",
+      "category": "强调音效",
+      "duration": 0.5,
+      "volume": 0.85
+    },
+    {
+      "prompt": "fast whoosh transition sound effect",
+      "timestamp": "00:00:06.800",
+      "description": "镜头快速切换到产品展示",
+      "category": "转场音效",
+      "duration": 0.8,
+      "volume": 0.8
+    },
+    {
+      "prompt": "button click interface sound",
+      "timestamp": "00:00:09.100",
+      "description": "手指点击屏幕特写",
+      "category": "互动音效",
+      "duration": 0.3,
+      "volume": 0.75
+    },
+    {
+      "prompt": "rhythmic beat percussion accent",
+      "timestamp": "00:00:11.500",
+      "description": "快速剪辑卡点，多个产品特性连续展示",
+      "category": "节奏音效",
+      "duration": 0.4,
+      "volume": 0.8
+    },
+    {
+      "prompt": "success chime notification sound",
+      "timestamp": "00:00:13.800",
+      "description": "产品演示完成，显示对勾标记",
+      "category": "强调音效",
+      "duration": 0.6,
+      "volume": 0.85
+    }
+  ],
+  "videoInput": "https://1926289158.tos-cn-guangzhou.volces.com/a1.mp4",
+  "inputType": "url",
+  "analyzedAt": "2025-11-19T08:10:00.000Z",
+  "aiModel": "doubao-seed-1-6-vision-250815"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

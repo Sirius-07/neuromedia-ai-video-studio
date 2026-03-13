@@ -1,0 +1,48 @@
+/* 右侧Inspector悬停时，选中卡片的联动高亮效果 */
+
+.inspector-hover-highlight {
+  animation: inspector-pulse 2s ease-in-out infinite;
+  position: relative;
+}
+
+.inspector-hover-highlight::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 0.75rem;
+  background: linear-gradient(45deg, 
+    rgba(139, 92, 246, 0.3), 
+    rgba(139, 92, 246, 0.1), 
+    rgba(139, 92, 246, 0.3)
+  );
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes inspector-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2);
+  }
+}
+
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+
+
+
+
+
+
+

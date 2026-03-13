@@ -1,0 +1,165 @@
+<template>
+    <div class="lite-editor-container">
+  
+      <div class="video-section">
+        <video 
+          ref="videoPlayer" 
+          :src="videoUrl"
+          @timeupdate="updateCurrentTime"
+        ></video>
+        <div class="progress-bar">{{ formatTime(currentTime) }}</div>
+      </div>
+  
+      <div class="control-panel">
+        
+        <div class="card bgm-card">
+          <div class="card-header">
+            <span class="icon">🎵</span> 
+            <h3>背景音乐：{{ bgmInfo.style }}</h3>
+          </div>
+          
+          <div class="card-body">
+            <label>氛围强度 (音量)</label>
+            <input type="range" v-model="bgmInfo.volume" min="0" max="100">
+            
+            <div class="style-tags">
+              <button @click="regenerateBGM('cheerful')">✨ 欢快</button>
+              <button @click="regenerateBGM('tech')">🤖 科技</button>
+              <button @click="regenerateBGM('cinematic')">🎬 电影感</button>
+            </div>
+          </div>
+        </div>
+  
+        <hr class="divider">
+  
+        <div class="sfx-feed-list">
+          <h3>✨ 精彩时刻音效</h3>
+          <p class="hint">点击卡片跳转预览，不需要的音效直接关闭</p>
+  
+          <div 
+            v-for="(sfx, index) in sortedSfxList" 
+            :key="sfx.id"
+            class="sfx-item-card"
+            :class="{ 'playing-now': isCurrentPlaying(sfx) }"
+            @click="seekVideoTo(sfx.startTime)"
+          >
+            <div class="time-badge">
+              {{ formatTime(sfx.startTime) }}
+            </div>
+  
+            <div class="sfx-info">
+              <span class="sfx-name">{{ sfx.description }}</span>
+              <span class="sfx-scene-tag">场景: {{ sfx.sceneMatch }}</span>
+            </div>
+  
+            <div class="sfx-action">
+              <toggle-switch 
+                v-model="sfx.isEnabled" 
+                active-text="保留" 
+                inactive-text="移除"
+              />
+            </div>
+          </div>
+        </div>
+  
+      </div>
+    </div>
+  </template>
+  
+  <script>
+  export default {
+    data() {
+      return {
+        currentTime: 0,
+        videoUrl: 'user_upload.mp4',
+        
+        // 1. BGM 数据对象 (对应原本的 A1 轨道)
+        bgmInfo: {
+          url: 'generated_bgm.wav',
+          style: 'Inspiring Orchestral',
+          volume: 80
+        },
+  
+        // 2. 音效列表 (对应 A2 - A5 轨道的数据集合)
+        // 后端需要把不同轨道的音效合并成一个数组返回给前端
+        sfxList: [
+          { 
+            id: 101, 
+            startTime: 2.0, 
+            endTime: 2.5, 
+            description: '转场：咻声', 
+            sceneMatch: '画面切换', 
+            isEnabled: true 
+          },
+          { 
+            id: 102, 
+            startTime: 6.0, 
+            endTime: 8.0, 
+            description: '键盘打字声', 
+            sceneMatch: '办公室特写', 
+            isEnabled: true 
+          },
+          { 
+            id: 103, 
+            startTime: 26.5, 
+            endTime: 28.0, 
+            description: 'Logo展示重音', 
+            sceneMatch: '结尾', 
+            isEnabled: true 
+          }
+        ]
+      };
+    },
+    computed: {
+      // 关键逻辑：按时间排序，确保列表是从上到下的时间流
+      sortedSfxList() {
+        return this.sfxList.sort((a, b) => a.startTime - b.startTime);
+      }
+    },
+    methods: {
+      // 点击卡片，视频跳转到对应时间
+      seekVideoTo(time) {
+        this.$refs.videoPlayer.currentTime = time;
+        this.$refs.videoPlayer.play();
+      },
+      
+      // 判断当前视频进度是否走到了这个音效的时间段
+      // 用来实现卡片高亮效果，让用户知道正在播哪个声音
+      isCurrentPlaying(sfx) {
+        return this.currentTime >= sfx.startTime && this.currentTime <= sfx.endTime;
+      },
+  
+      // 重新生成BGM的逻辑
+      regenerateBGM(style) {
+        // Call API...
+        console.log('AI正在重新生成风格为 ' + style + ' 的BGM...');
+      }
+    }
+  };
+  </script>
+  
+  <style scoped>
+  /* 简单的样式示意 */
+  .sfx-item-card {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-radius: 8px;
+    background: #2b2b2b;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  /* 当视频播放到该音效时，卡片高亮显示，给用户极强的反馈感 */
+  .sfx-item-card.playing-now {
+    background: #3A3A50; /* 稍微亮一点的颜色 */
+    border-left: 4px solid #a855f7; /* 紫色高亮条 */
+  }
+  
+  .time-badge {
+    font-family: monospace;
+    color: #888;
+    margin-right: 12px;
+  }
+  </style>

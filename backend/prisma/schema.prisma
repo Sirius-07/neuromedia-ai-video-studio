@@ -1,0 +1,131 @@
+// Prisma Schema for AI智能配乐系统
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model SoundtrackTask {
+  id                  String    @id @default(cuid())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // 任务状态: 'processing', 'completed', 'failed'
+  status              String    @default("processing")
+  
+  // 视频ID
+  videoId             String
+  
+  // 关联的项目ID（可选）
+  projectId           String?
+  
+  // AI分析生成的指令蓝图（JSON格式）
+  instructionBlueprint String?  // 存储JSON字符串
+  
+  // 最终的资产映射（包含生成的音频URL）
+  finalAssetMap       String?   // 存储JSON字符串
+  
+  // 错误信息（如果任务失败）
+  errorMessage        String?
+  
+  @@index([videoId])
+  @@index([status])
+  @@index([projectId])
+}
+
+model AudioGenerationTask {
+  id                  String    @id @default(cuid())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // 任务状态: 'pending', 'processing', 'completed', 'failed'
+  status              String    @default("pending")
+  
+  // Stable Audio 生成参数
+  prompt              String    // 提示词
+  duration            Float     // 音频时长（秒）
+  steps               Int       @default(100)  // 推理步数
+  cfgScale            Float     @default(7.0)  // CFG引导强度
+  seed                Int       @default(-1)   // 随机种子（-1表示随机）
+  samplerType         String    @default("dpmpp-3m-sde")  // 采样器类型
+  sigmaMin            Float     @default(0.3)   // 最小噪声水平
+  sigmaMax            Float     @default(500.0) // 最大噪声水平
+  
+  // 输出结果
+  outputFilePath      String?   // 生成的音频文件路径
+  outputFileUrl       String?   // 可访问的音频文件URL
+  
+  // 错误信息（如果任务失败）
+  errorMessage        String?
+  
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================================
+// 完整项目管理模型
+// ============================================================
+
+model Project {
+  id                  String    @id @default(cuid())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // 项目基本信息
+  title               String                           // 项目标题
+  description         String?                          // 项目描述
+  userPrompt          String?                          // 用户输入的原始需求
+  thumbnail           String?                          // 项目缩略图URL
+  
+  // 项目状态
+  status              String    @default("draft")      // draft, storyboard, soundtrack, completed
+  
+  // 分镜模块数据（JSON格式）
+  storyboardData      String?                          // 存储所有场景的JSON字符串
+  totalScenes         Int       @default(0)            // 总场景数
+  completedScenes     Int       @default(0)            // 已完成的场景数
+  
+  // 配乐模块
+  soundtrackTaskId    String?                          // 关联的配乐任务ID
+  
+  // 导出模块
+  roughCutVideoUrl    String?                          // 粗剪视频URL
+  finalVideoUrl       String?                          // 最终视频URL
+  
+  // 项目设置（JSON格式）
+  settings            String?                          // 项目设置（生成模式、视频参数等）
+  
+  @@index([createdAt])
+  @@index([status])
+  @@index([updatedAt])
+}
+
+// 保持 StoryboardProject 表用于向后兼容（可选）
+model StoryboardProject {
+  id                  String    @id @default(cuid())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // 项目基本信息
+  title               String                           // 项目标题
+  userPrompt          String?                          // 用户输入的原始需求
+  
+  // 项目数据（JSON格式）
+  scenesData          String                           // 存储所有场景的JSON字符串
+  
+  // 项目统计
+  totalScenes         Int       @default(0)            // 总场景数
+  completedScenes     Int       @default(0)            // 已完成的场景数
+  
+  // 项目状态
+  status              String    @default("draft")      // draft, in_progress, completed
+  
+  @@index([createdAt])
+  @@index([status])
+}
+
+

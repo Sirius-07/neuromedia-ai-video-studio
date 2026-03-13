@@ -1,0 +1,283 @@
+.timeline-renderer {
+  background: #2a2a2a;
+  border-radius: 12px;
+  padding: 30px;
+  margin-top: 20px;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #444;
+}
+
+.timeline-header h3 {
+  color: #667eea;
+  font-size: 1.5em;
+  margin: 0;
+}
+
+.timeline-info {
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+  color: #aaa;
+}
+
+.timeline-info span {
+  background: #1a1a1a;
+  padding: 8px 16px;
+  border-radius: 6px;
+}
+
+.empty-message {
+  text-align: center;
+  color: #666;
+  padding: 40px;
+  font-style: italic;
+}
+
+/* 时间轴容器 */
+.timeline-container {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 20px;
+  overflow-x: auto;
+}
+
+/* 时间标尺 */
+.timeline-ruler {
+  position: relative;
+  height: 30px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #444;
+}
+
+.ruler-mark {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.ruler-mark span {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+}
+
+.ruler-mark::before {
+  content: '';
+  display: block;
+  width: 2px;
+  height: 10px;
+  background: #888;
+  margin: 0 auto 5px;
+}
+
+/* 轨道列表 */
+.timeline-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.track-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-height: 60px;
+}
+
+.track-label {
+  flex: 0 0 250px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: #2a2a2a;
+  border-radius: 6px;
+}
+
+.track-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.track-badge.track-video {
+  background: #3b82f6;
+  color: white;
+}
+
+.track-badge.track-bgm {
+  background: #8b5cf6;
+  color: white;
+}
+
+.track-badge.track-sfx {
+  background: #10b981;
+  color: white;
+}
+
+.track-name {
+  font-size: 14px;
+  color: #ccc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 轨道内容区域 */
+.track-content {
+  flex: 1;
+  position: relative;
+  height: 60px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* 轨道片段 */
+.track-clip {
+  position: absolute;
+  top: 5px;
+  height: 50px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  overflow: hidden;
+  border: 2px solid transparent;
+}
+
+.track-clip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  border-color: #667eea;
+}
+
+.clip-video {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.clip-bgm {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.clip-sfx {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.clip-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+}
+
+.clip-time {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.clip-duration {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.clip-url {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 2px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 详情折叠面板 */
+.track-clips-details {
+  margin-top: 30px;
+}
+
+.track-clips-details summary {
+  cursor: pointer;
+  padding: 12px;
+  background: #1a1a1a;
+  border-radius: 8px;
+  font-weight: 600;
+  color: #667eea;
+}
+
+.track-clips-details summary:hover {
+  background: #333;
+}
+
+.track-clips-details pre {
+  margin-top: 15px;
+  padding: 20px;
+  background: #1a1a1a;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 12px;
+  border: 1px solid #444;
+}
+
+/* 集成指南 */
+.integration-guide {
+  margin-top: 30px;
+  padding: 20px;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.integration-guide h4 {
+  color: #667eea;
+  margin-bottom: 15px;
+}
+
+.integration-guide p {
+  color: #ccc;
+  margin-bottom: 15px;
+}
+
+.integration-guide code {
+  background: #2a2a2a;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #f59e0b;
+  font-family: monospace;
+}
+
+.integration-guide ul {
+  list-style: none;
+  padding: 0;
+}
+
+.integration-guide li {
+  padding: 10px;
+  margin: 8px 0;
+  background: #2a2a2a;
+  border-radius: 6px;
+  color: #aaa;
+}
+
+.integration-guide li strong {
+  color: #667eea;
+}
+
+
+
+
+
