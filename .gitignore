@@ -94,3 +94,4 @@ stable-audio/**/*.pt
 stable-audio/**/*.ckpt
 stable-audio/*.wav
 stable-audio/**/*.wav
+.worktrees/
