@@ -23,7 +23,6 @@ import { StartPage } from '../StartPage';
 import { ScriptEditorPage } from '../ScriptEditorPage';
 import { StyleSelectionPage } from '../StyleSelectionPage';
 import { VisualStoryboardPage } from '../storyboard/VisualStoryboardPage';
-import { VideoHandoffPage } from '../handoff/VideoHandoffPage';
 import { type WorkbenchHeaderIntent } from '../storyboard/workbenchHeaderMeta';
 import { EditorPage } from '../EditorPage';
 import { getRecentProjects, deleteProject, ProjectListItem } from '../../api/projectApi';
@@ -52,7 +51,6 @@ const ROUTE_TO_STAGE: Record<string, string> = {
   '/script-editor': 'script',
   '/style-selection': 'style',
   '/storyboard': 'storyboard',
-  '/handoff': 'handoff',
 };
 
 function hasExplicitWorkbenchIntent(settings?: Record<string, any> | null) {
@@ -749,25 +747,35 @@ export function StudioApp() {
         };
 
         const uploadedAssets = settings.uploadedAssets || settings.creationIntent?.uploadedAssets || [];
-        const handoffState = {
+        const proposalForStoryboard = settings.inspirationProposal || settings.selectedProposal;
+        const storyboardScenes = (settings.customScenes || settings.inspirationProposal?.roughScript?.scenes || [])
+          .map((scene: any) => ({
+            ...scene,
+            assetUrl: scene.assetUrl || scene.assetPath || scene.reference_asset_path,
+          }));
+        const storyboardRestoreState = {
           projectId: project.id,
           projectData: project,
           creationIntent: settings.creationIntent,
-          proposal: settings.inspirationProposal || settings.selectedProposal,
-          scenes: settings.customScenes || settings.inspirationProposal?.roughScript?.scenes || project.storyboardData || [],
-          assets: uploadedAssets,
-          selectedAssetIds: settings.selectedAssetIds || uploadedAssets
-            .filter((asset: any) => asset.selected !== false)
-            .map((asset: any) => asset.file_path || asset.url || asset.name || ''),
-          projectTitle: project.title,
-          reportText: settings.newsArticle || project.userPrompt || project.description || '',
-          previewVideoUrl: project.roughCutVideoUrl || project.finalVideoUrl,
+          inspirationProposal: proposalForStoryboard,
+          uploadedAssets,
+          userPrompt: project.userPrompt || '',
+          generationMode: settings.generationMode || settings.creationIntent?.generationMode || 'ai_generated',
+          publishGoal: settings.publishGoal || settings.creationIntent?.publishGoal,
+          aspectRatio: settings.aspectRatio || settings.creationIntent?.aspectRatio,
+          artStyle: settings.artStyle || settings.creationIntent?.artStyle,
+          newsArticle: settings.newsArticle || undefined,
+          scriptData: project.storyboardData
+            ? { scenes: project.storyboardData, title: project.title, project_id: project.id }
+            : null,
+          customScenes: proposalForStoryboard ? undefined : storyboardScenes,
+          isGenerating: Boolean(proposalForStoryboard && !hasStoryboard),
         };
 
         const goToScriptEditor = () => navigate('/script-editor', { state: scriptEditorState });
 
         if (currentPage === 'handoff' || settings.handoffFlowVersion === 'handoff_sample_v1') {
-          navigate(`/handoff?projectId=${project.id}`, { state: handoffState });
+          navigate(`/storyboard?projectId=${project.id}`, { state: storyboardRestoreState });
           return;
         }
 
@@ -968,7 +976,6 @@ export function StudioApp() {
                     <Route path="/script-editor" element={<ScriptEditorPage />} />
                     <Route path="/style-selection" element={<StyleSelectionPage />} />
                     <Route path="/storyboard" element={<VisualStoryboardPage />} />
-                    <Route path="/handoff" element={<VideoHandoffPage />} />
                     <Route path="/editor" element={<EditorPage />} />
                     <Route path="*" element={<StartPage onProjectsChange={loadProjects} />} />
                   </Routes>

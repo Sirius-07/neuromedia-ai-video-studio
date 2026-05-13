@@ -84,12 +84,12 @@ function getAutoSuggestion(
       return { type: 'warn', text: '文稿内容较短，AI 能提炼的信息可能有限，建议补充更多背景。' };
     }
     if (len > 800 && publishGoal === 'fast_publish') {
-      return { type: 'info', text: '内容较丰富，AI 会先提炼核心事实，再整理成适合交接的视频样片。' };
+      return { type: 'info', text: '内容较丰富，AI 会先提炼核心事实，再整理成适合编辑的分镜草稿。' };
     }
     if (uploadedAssets.length > 0) {
-      return { type: 'ok', text: `文字和素材已就绪，${assetUsageText}，AI 会整理成视频样片和结构化分镜表。` };
+      return { type: 'ok', text: `文字和素材已就绪，${assetUsageText}，AI 会整理成分镜卡片和结构化分镜表。` };
     }
-    return { type: 'ok', text: '内容已就绪，AI 会整理成一版可沟通的视频交接样片。' };
+    return { type: 'ok', text: '内容已就绪，AI 会整理成一版可编辑的分镜草稿。' };
   }
 
   if (uploadedAssets.length === 0) return null;
@@ -201,11 +201,11 @@ export const StartPage: React.FC<StartPageProps> = ({ onProjectsChange }) => {
   const hasGenerationInput = trimmedArticle.length > 0 || uploadedAssets.length > 0;
   const canGenerate = !isUploading && !isGenerating && hasGenerationInput;
   const generateButtonLabel = isGenerating
-    ? '正在生成交接样片...'
+    ? '正在生成分镜...'
     : isUploading
       ? '素材上传中...'
       : hasGenerationInput
-        ? '生成交接样片'
+        ? '生成分镜方案'
         : '先输入报道或上传素材';
 
   const handleGenerate = async () => {
@@ -224,12 +224,12 @@ export const StartPage: React.FC<StartPageProps> = ({ onProjectsChange }) => {
       );
 
       if (!proposalsResult.success || !proposalsResult.data?.proposals?.length) {
-        throw new Error(proposalsResult.error || '交接样片生成失败，请重试');
+        throw new Error(proposalsResult.error || '分镜生成失败，请重试');
       }
 
       const proposals = proposalsResult.data.proposals as InspirationProposal[];
       const proposal = selectRecommendedProposal(proposals);
-      if (!proposal) throw new Error('没有可用的视频交接方案，请重试');
+      if (!proposal) throw new Error('没有可用的分镜方案，请重试');
 
       const intent = createCreationIntent({
         inputMode: effectiveInputMode,
@@ -249,9 +249,8 @@ export const StartPage: React.FC<StartPageProps> = ({ onProjectsChange }) => {
         userPrompt,
         settings: {
           ...buildCreationSettings(intent),
-          currentPage: 'handoff',
+          currentPage: 'storyboard',
           inspirationMode: true,
-          handoffFlowVersion: 'handoff_sample_v1',
           customScenes: proposal.roughScript?.scenes || [],
           selectedAssetIds: uploadedAssets
             .filter(asset => asset.selected !== false)
@@ -269,24 +268,16 @@ export const StartPage: React.FC<StartPageProps> = ({ onProjectsChange }) => {
       const project = projectResult.data;
       onProjectsChange?.();
 
-      navigate('/handoff', {
+      navigate(`/storyboard?projectId=${project.id}`, {
         state: {
           projectId: project.id,
           projectData: project,
           creationIntent: intent,
-          proposal,
           inspirationProposal: proposal,
-          scenes: proposal.roughScript?.scenes || [],
-          assets: uploadedAssets,
-          selectedAssetIds: uploadedAssets
-            .filter(asset => asset.selected !== false)
-            .map(asset => asset.file_path || asset.url || asset.name || '')
-            .filter(Boolean),
           uploadedAssets,
           userPrompt,
-          reportText: trimmedArticle || userPrompt,
-          projectTitle: proposal.title,
           generationMode,
+          isGenerating: true,
           publishGoal,
           aspectRatio: intent.aspectRatio,
           artStyle: intent.artStyle,
@@ -330,7 +321,7 @@ export const StartPage: React.FC<StartPageProps> = ({ onProjectsChange }) => {
           开始创作
         </div>
         <h1 className="text-4xl font-light tracking-tight text-neutral-900 dark:text-white mb-3">
-          制作新闻视频交接样片
+          制作新闻短视频
         </h1>
         <p className="text-neutral-500 dark:text-neutral-400 text-base max-w-xl mx-auto">
           传入报道和素材，快速表达你想要的视频效果。
@@ -493,7 +484,7 @@ export const StartPage: React.FC<StartPageProps> = ({ onProjectsChange }) => {
               <span className="text-xs text-neutral-500 dark:text-neutral-400">输出内容</span>
               <div className="inline-flex w-full items-center gap-2 rounded-full border border-neutral-200 bg-neutral-100/70 px-3 py-2 text-xs text-neutral-600 shadow-inner dark:border-white/10 dark:bg-white/[0.04] dark:text-neutral-300 sm:w-auto">
                 <Layers size={13} className="text-cyan-500" />
-                <span className="font-medium text-neutral-800 dark:text-neutral-100">视频交接样片</span>
+                <span className="font-medium text-neutral-800 dark:text-neutral-100">分镜卡片工作台</span>
                 <span className="text-neutral-400">+</span>
                 <FileText size={13} className="text-violet-500" />
                 <span>结构化分镜表</span>
