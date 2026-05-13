@@ -12,19 +12,19 @@ dotenv.config();
  * 
  * 优先级：
  * 1. 环境变量 PUBLIC_URL (用于生产环境或ngrok)
- * 2. 默认 localhost:3000 (用于本地开发)
+ * 2. 默认 localhost:4300 (用于本地开发)
  * 
  * 使用示例：
- * - 本地开发: http://localhost:3000
+ * - 本地开发: http://localhost:4300
  * - ngrok: https://xxxx.ngrok.io
  * - 生产服务器: https://your-domain.com
  */
-export const PUBLIC_URL = process.env.PUBLIC_URL || 'http://localhost:3000';
+export const PUBLIC_URL = process.env.PUBLIC_URL || 'http://localhost:4300';
 
 /**
  * 服务器端口
  */
-export const PORT = process.env.PORT || 3000;
+export const PORT = process.env.PORT || 4300;
 
 /**
  * 将相对路径转换为完整的公网URL

@@ -1,5 +1,5 @@
 // storyboard/assistant/StoryboardDirectorPanel.tsx
-// Storyboard AI Director 右侧面板完整 UI
+// Storyboard AI 分镜助手右侧面板完整 UI
 // 风格与 ScriptAssistantPanel 保持一致，适配分镜板专属逻辑
 
 import React, {
@@ -79,7 +79,7 @@ function TypingIndicator() {
             transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2, ease: "easeInOut" }}
           />
         ))}
-        <span className="text-xs text-neutral-500 ml-1">导演正在思考...</span>
+        <span className="text-xs text-neutral-500 ml-1">助手正在思考...</span>
       </div>
     </div>
   );
@@ -108,11 +108,11 @@ function EmptyState({
         <Film size={22} className="text-violet-400" />
       </div>
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-neutral-300">AI Director 已就绪</p>
+        <p className="text-sm font-medium text-neutral-300">AI 分镜助手已就绪</p>
         <p className="text-xs text-neutral-500 leading-relaxed">
           {hasSelectedShot
-            ? "已选中分镜，可针对当前 Shot 下指令"
-            : "选中某个分镜进行精准修改，\n或直接发起全局对话"}
+            ? "已选中分镜，可以直接描述你想怎么改"
+            : "先选中一个分镜做精修，或直接发起全局修改"}
         </p>
       </div>
       <div className="w-full space-y-1.5">
@@ -261,7 +261,7 @@ function ShotIndicator({
   }
 
   const idx = scenes.findIndex((s) => s.id === selectedShotId);
-  const label = idx === -1 ? `Shot #${selectedShotId}` : `Shot ${idx + 1}`;
+  const label = idx === -1 ? `分镜 ${selectedShotId}` : `分镜 ${idx + 1}`;
 
   return (
     <AnimatePresence mode="wait">
@@ -410,7 +410,7 @@ export default function StoryboardDirectorPanel({
             <Film size={13} className="text-violet-400" />
           </div>
           <span className="text-[11px] font-semibold tracking-[0.15em] text-neutral-300 uppercase">
-            AI Director
+            AI 分镜助手
           </span>
         </div>
 
@@ -422,8 +422,8 @@ export default function StoryboardDirectorPanel({
               : "bg-amber-500/10 border-amber-500/20 text-amber-400"
           }`}>
             {mode === "image"
-              ? <><ImageIcon size={9} /><span className="ml-0.5">IMAGE</span></>
-              : <><Video     size={9} /><span className="ml-0.5">VIDEO</span></>
+              ? <><ImageIcon size={9} /><span className="ml-0.5">图片</span></>
+              : <><Video     size={9} /><span className="ml-0.5">视频</span></>
             }
           </div>
 
@@ -591,8 +591,8 @@ export default function StoryboardDirectorPanel({
                 : isAwaitingConfirm
                 ? "请先确认或取消上方建议"
                 : hasSelectedShot
-                ? `指挥选中的分镜...`
-                : `告诉 AI Director 你的想法...`
+                ? `描述选中分镜要怎么改...`
+                : `告诉 AI 分镜助手你的想法...`
             }
             rows={1}
             className="flex-1 bg-transparent text-xs text-neutral-300 placeholder:text-neutral-600 resize-none outline-none leading-relaxed max-h-28 overflow-y-auto"
@@ -613,7 +613,7 @@ export default function StoryboardDirectorPanel({
         </div>
 
         <p className="text-[10px] text-neutral-700 text-center">
-          Enter 发送 · Shift+Enter 换行
+          回车发送 · Shift+回车换行
         </p>
       </div>
     </div>

@@ -111,7 +111,7 @@ export const VoiceoverGenerationDialog: React.FC<VoiceoverGenerationDialogProps>
           if (resultScene && resultScene.voiceover?.success) {
             return {
               ...scene,
-              voiceoverUrl: `http://localhost:3000${resultScene.voiceover.audio_url}`,
+              voiceoverUrl: `http://localhost:4300${resultScene.voiceover.audio_url}`,
               voiceoverDuration: resultScene.voiceover.duration
             };
           }
@@ -146,7 +146,7 @@ export const VoiceoverGenerationDialog: React.FC<VoiceoverGenerationDialogProps>
       }
     }
 
-    const audio = new Audio(`http://localhost:3000${audioUrl}`);
+    const audio = new Audio(`http://localhost:4300${audioUrl}`);
     audio.play();
     audio.onended = () => {
       setPlayingAudio(null);

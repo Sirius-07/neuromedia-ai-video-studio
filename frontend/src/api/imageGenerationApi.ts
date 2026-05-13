@@ -5,7 +5,7 @@
  */
 
 // API 配置 - 通过后端代理
-const API_BASE_URL = 'http://localhost:3000/api/v1/image-gen';
+const API_BASE_URL = 'http://localhost:4300/api/v1/image-gen';
 
 // ============================================================
 // 类型定义
@@ -266,7 +266,7 @@ export async function imageUrlToBase64(imageUrl: string): Promise<string> {
     }
 
     // 通过后端代理获取图片，避免跨域问题
-    const proxyUrl = `http://localhost:3000/api/v1/proxy/image?url=${encodeURIComponent(imageUrl)}`;
+    const proxyUrl = `http://localhost:4300/api/v1/proxy/image?url=${encodeURIComponent(imageUrl)}`;
     
     const response = await fetch(proxyUrl);
     if (!response.ok) {

@@ -76,7 +76,7 @@ class ComfyUIService {
       console.log('[ComfyUI Service] 视频生成完成:', videoFilename);
 
       // 6. 返回视频URL
-      const videoUrl = `http://localhost:3000/comfyui/output/${videoFilename}`;
+      const videoUrl = `http://localhost:4300/comfyui/output/${videoFilename}`;
       return { videoUrl };
     } catch (error) {
       console.error('[ComfyUI Service] 生成失败:', error);

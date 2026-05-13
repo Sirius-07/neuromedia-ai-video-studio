@@ -3,7 +3,7 @@
  * 用于将脚本文本转换为视觉提示词
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4300';
 
 export interface ScriptToPromptRequest {
   scriptText: string;

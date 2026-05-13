@@ -5,7 +5,7 @@
 
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3000/api/v1/audio';
+const API_BASE_URL = 'http://localhost:4300/api/v1/audio';
 
 // 测试配置
 const TEST_CONFIG = {
@@ -38,7 +38,7 @@ async function testAPI() {
   try {
     // 1. 测试服务器健康检查
     log('\n[1/5] 测试服务器健康状态...', 'blue');
-    const healthResponse = await axios.get('http://localhost:3000/health');
+    const healthResponse = await axios.get('http://localhost:4300/health');
     if (healthResponse.data.status === 'ok') {
       log('✓ 服务器运行正常', 'green');
     }
@@ -111,11 +111,11 @@ async function testAPI() {
     log(`   - 任务ID: ${taskId}`);
     log(`   - 提示词: "${TEST_CONFIG.prompt}"`);
     log(`   - 时长: ${TEST_CONFIG.duration} 秒`);
-    log(`   - 音频文件: http://localhost:3000${taskStatus.outputFileUrl}`);
+    log(`   - 音频文件: http://localhost:4300${taskStatus.outputFileUrl}`);
     log(`   - 总耗时: ${attempts * 5} 秒`);
 
     log('\n🎉 你可以通过以下命令下载音频:', 'yellow');
-    log(`   curl -O http://localhost:3000${taskStatus.outputFileUrl}\n`);
+    log(`   curl -O http://localhost:4300${taskStatus.outputFileUrl}\n`);
 
   } catch (error) {
     log('\n✗ 测试失败', 'red');

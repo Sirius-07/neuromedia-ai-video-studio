@@ -287,7 +287,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       const isVideo = /\.(mp4|mov|avi|webm|mkv)(\?|$)/i.test(thumbnailUrl);
                       if (isVideo) {
                         // 视频URL使用视频代理
-                        thumbnailUrl = `http://localhost:3000/api/v1/proxy/video?url=${encodeURIComponent(thumbnailUrl)}`;
+                        thumbnailUrl = `http://localhost:4300/api/v1/proxy/video?url=${encodeURIComponent(thumbnailUrl)}`;
                       } else {
                         // 图片URL使用图片代理
                       thumbnailUrl = getProxiedImageUrl(thumbnailUrl);

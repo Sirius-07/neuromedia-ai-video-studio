@@ -4,7 +4,7 @@
 
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3000/api/v1/image';
+const API_URL = 'http://localhost:4300/api/v1/image';
 
 async function testFirstTailVideo() {
   console.log('🧪 测试即梦 3.0 首尾帧视频生成...\n');
@@ -56,7 +56,7 @@ async function testFirstTailVideo() {
       console.error('错误信息:', JSON.stringify(error.response.data, null, 2));
     } else if (error.request) {
       console.error('无响应，请检查:');
-      console.error('1. 后端服务是否运行 (http://localhost:3000)');
+      console.error('1. 后端服务是否运行 (http://localhost:4300)');
       console.error('2. 火山引擎 AK/SK 是否配置正确');
     } else {
       console.error('错误:', error.message);

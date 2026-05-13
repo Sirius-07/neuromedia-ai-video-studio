@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CollaborationContext } from './collaboration/CollaborationPanel';
-import { MEMBERS } from './collaboration/mockData';
 import {
   DndContext,
   closestCenter,
@@ -47,7 +45,7 @@ import {
 import { InspirationProposal } from './InspirationModal';
 import * as scriptEditApi from '../api/scriptEditApi';
 import { enhanceScene as enhanceSceneApi } from '../api/scriptEditApi';
-import { createProject, updateProject } from '../api/projectApi';
+import { createProject, getProject, updateProject } from '../api/projectApi';
 
 interface SceneItem {
   id: string;
@@ -71,6 +69,9 @@ interface SceneItem {
   focalLength?: string;  // 焦距（24mm/35mm/50mm/85mm/135mm）
   dialogue?: string;     // 对白台词
   notes?: string;        // 拍摄备注
+  // 新闻溯源字段
+  sourceRef?: string;         // 对应原稿哪一段
+  isAISupplemented?: boolean; // true = AI补充画面，false = 直接来自原稿
 }
 
 // ─── Module-level helpers (no component state dependency) ───────────────────
@@ -117,6 +118,7 @@ interface SceneReorderItemProps {
   enhancingSceneId: string | null;
   newSceneIds: Set<string>;
   selectedSceneId: string | null;
+  aiChangedIds?: Set<string>;
   isDragOverlay?: boolean;
   isLast?: boolean;
   onEditScene: (id: string, field: keyof SceneItem, value: any) => void;
@@ -133,6 +135,7 @@ function SceneReorderItem({
   enhancingSceneId,
   newSceneIds,
   selectedSceneId,
+  aiChangedIds,
   isDragOverlay = false,
   isLast = false,
   onEditScene,
@@ -152,6 +155,7 @@ function SceneReorderItem({
   } = useSortable({ id: scene.id });
 
   const isSelected = selectedSceneId === scene.id;
+  const isAiChanged = aiChangedIds?.has(scene.id) ?? false;
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -168,9 +172,11 @@ function SceneReorderItem({
         if ((e.target as HTMLElement).closest('button')) return;
         onSetSelectedId(isSelected ? null : scene.id);
       }}
-      className={`group relative p-5 rounded-xl border transition-all select-none ${
+      className={`nm-scene-outline-card group relative p-5 rounded-xl border transition-all select-none ${
         isDragOverlay
           ? 'cursor-grabbing bg-white dark:bg-[#111] border-cyan-500/60 shadow-2xl shadow-cyan-500/20 ring-2 ring-cyan-500/40 scale-[1.02]'
+          : isAiChanged
+          ? 'cursor-pointer bg-violet-50 dark:bg-violet-500/10 border-violet-400 dark:border-violet-400/60 shadow-md shadow-violet-500/15 ring-1 ring-violet-400/40'
           : isSelected && isRealShot(scene)
           ? 'cursor-default bg-blue-50 dark:bg-blue-500/8 border-blue-400 dark:border-blue-500/50 shadow-sm shadow-blue-500/10 ring-1 ring-blue-400/25'
           : isSelected
@@ -255,14 +261,14 @@ function SceneReorderItem({
                     onChange={(e) => onEditScene(scene.id, 'cameraMovement', e.target.value)}
                     className="w-full px-2 py-1.5 bg-white dark:bg-black/30 border border-neutral-200 dark:border-white/10 rounded-lg text-xs text-neutral-700 dark:text-neutral-300 focus:outline-none focus:border-cyan-500/50"
                   >
-                    <option value="none">静止 Static</option>
-                    <option value="zoom_in">推进 Zoom In</option>
-                    <option value="zoom_out">拉远 Zoom Out</option>
-                    <option value="pan_left">左摇 Pan Left</option>
-                    <option value="pan_right">右摇 Pan Right</option>
-                    <option value="tilt_up">上摇 Tilt Up</option>
-                    <option value="tilt_down">下摇 Tilt Down</option>
-                    <option value="drone">航拍 Drone</option>
+                    <option value="none">静止</option>
+                    <option value="zoom_in">推进</option>
+                    <option value="zoom_out">拉远</option>
+                    <option value="pan_left">左摇</option>
+                    <option value="pan_right">右摇</option>
+                    <option value="tilt_up">上摇</option>
+                    <option value="tilt_down">下摇</option>
+                    <option value="drone">航拍</option>
                   </select>
                   <div className="flex items-center gap-1.5">
                     <input
@@ -365,6 +371,22 @@ function SceneReorderItem({
                 </div>
               )}
 
+              {/* 新闻溯源标注 */}
+              {scene.sourceRef && (
+                <div className={`flex items-start gap-1.5 px-2 py-1 rounded-md border text-[10px] leading-relaxed ${
+                  scene.isAISupplemented
+                    ? 'bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20 text-violet-600 dark:text-violet-400'
+                    : 'bg-cyan-50 dark:bg-cyan-500/10 border-cyan-200 dark:border-cyan-500/20 text-cyan-700 dark:text-cyan-400'
+                }`}>
+                  <span className="shrink-0 mt-0.5">
+                    {scene.isAISupplemented ? '✦' : '📰'}
+                  </span>
+                  <span className="truncate" title={scene.sourceRef}>
+                    {scene.isAISupplemented ? 'AI补充画面' : scene.sourceRef}
+                  </span>
+                </div>
+              )}
+
               {/* 2 + 4. 运镜标签 + 物理属性 */}
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 {scene.cameraMovement && scene.cameraMovement !== 'none' && (
@@ -455,6 +477,7 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
     artStyle?: string;
     customStyleImage?: File;
   };
+  const queryProjectId = new URLSearchParams(location.search).get('projectId');
 
   // 脚本场景列表
   const [scenes, setScenes] = useState<SceneItem[]>([]);
@@ -478,7 +501,9 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
   );
   
   // AI助手输入框
-  const [aiSidebarOpen, setAiSidebarOpen] = useState(true);
+  const [aiSidebarOpen, setAiSidebarOpen] = useState(() =>
+    typeof window === 'undefined' ? true : window.innerWidth >= 768
+  );
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<Array<{
@@ -486,14 +511,17 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
     content: string;
   }>>([]);
 
+  // AI 变更撤销：保存上一次操作前的场景快照
+  const [undoSnapshot, setUndoSnapshot] = useState<SceneItem[] | null>(null);
+  // AI 变更高亮：记录最近被 AI 修改/新增的场景 ID 集合
+  const [aiChangedIds, setAiChangedIds] = useState<Set<string>>(new Set());
+
   // 对话历史自动滚动
   const conversationEndRef = useRef<HTMLDivElement>(null);
   // 记录欢迎消息是否已初始化（避免增删场景时重复重置）
   const welcomeInitialized = useRef(false);
   // 当前 AI 请求的取消控制器
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  const { injectEvent } = useContext(CollaborationContext);
 
   // 全局模式快捷建议
   const globalSuggestions = [
@@ -536,6 +564,35 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
   // 初始化场景数据
   useEffect(() => {
     if (!proposal) {
+      if (queryProjectId) {
+        let cancelled = false;
+        const restoreProject = async () => {
+          const result = await getProject(queryProjectId);
+          if (cancelled) return;
+          const project = result.data;
+          const settings = project?.settings || {};
+          if (result.success && project && settings.inspirationProposal) {
+            navigate('/script-editor', {
+              replace: true,
+              state: {
+                proposal: settings.inspirationProposal,
+                uploadedAssets: settings.uploadedAssets || project.uploadedAssets || [],
+                selectedAssetIds: settings.selectedAssetIds || [],
+                userPrompt: project.userPrompt || '',
+                generationMode: settings.generationMode || project.generationMode || 'ai_generated',
+                savedScenes: settings.customScenes || null,
+                projectId: project.id,
+                aspectRatio: settings.aspectRatio || '16:9',
+                artStyle: settings.artStyle,
+              },
+            });
+            return;
+          }
+          navigate('/');
+        };
+        restoreProject();
+        return () => { cancelled = true; };
+      }
       navigate('/');
       return;
     }
@@ -588,13 +645,16 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
         focalLength: scene.focalLength,
         dialogue: scene.dialogue,
         notes: scene.notes,
+        // 新闻溯源字段
+        sourceRef: scene.sourceRef,
+        isAISupplemented: scene.isAISupplemented,
       };
     });
 
     setScenes(initialScenes);
     setProjectTitle(proposal.title || '未命名项目');
     setSceneCount(initialScenes.length);
-  }, [proposal, uploadedAssets, selectedAssetIds, savedScenes, initialProjectId, navigate]);
+  }, [proposal, uploadedAssets, selectedAssetIds, savedScenes, initialProjectId, queryProjectId, navigate]);
 
   // 从路由 state 同步画幅与风格
   useEffect(() => {
@@ -649,34 +709,7 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
 
   // 删除场景
   const handleDeleteScene = (sceneId: string) => {
-    const target = scenes.find(s => s.id === sceneId);
     setScenes(scenes.filter(scene => scene.id !== sceneId));
-    if (target) {
-      const operator = MEMBERS[0];
-      injectEvent(
-        {
-          id: `script_shot_del_${Date.now()}`,
-          actionType: 'shot_deleted',
-          title: `删除镜头 #${target.sceneNumber}`,
-          summary: `从剧本中移除了第 ${target.sceneNumber} 个镜头`,
-          operatorId: operator.id,
-          timestamp: new Date().toISOString(),
-          timeAgo: '刚刚',
-          impactRoles: ['director'],
-          priority: 'low',
-          stage: 'script',
-        },
-        {
-          id: `sys_shot_del_${Date.now()}`,
-          type: 'system',
-          systemType: 'version_saved',
-          authorId: operator.id,
-          description: `删除了镜头 #${target.sceneNumber}`,
-          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-          date: 'today',
-        }
-      );
-    }
   };
 
   // 添加新场景（标记为新增，保存时需AI润色）
@@ -693,31 +726,6 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
     setScenes(prev => [...prev, newScene]);
     setNewSceneIds(prev => new Set(prev).add(newId));
     setEditingSceneId(newId);
-
-    const operator = MEMBERS[0];
-    injectEvent(
-      {
-        id: `script_shot_add_${Date.now()}`,
-        actionType: 'shot_added',
-        title: `新增镜头 #${newSceneNum}`,
-        summary: `在剧本结构中插入第 ${newSceneNum} 个镜头，待填写分镜描述`,
-        operatorId: operator.id,
-        timestamp: new Date().toISOString(),
-        timeAgo: '刚刚',
-        impactRoles: ['director', 'writer'],
-        priority: 'low',
-        stage: 'script',
-      },
-      {
-        id: `sys_shot_add_${Date.now()}`,
-        type: 'system',
-        systemType: 'version_saved',
-        authorId: operator.id,
-        description: `新增了镜头 #${newSceneNum}`,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        date: 'today',
-      }
-    );
   };
 
   // 在指定分镜后插入新分镜
@@ -782,30 +790,6 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
           role: 'assistant',
           content: `✨ 已完成分镜 ${scene.sceneNumber} 的AI润色：\n\n${enhanced.description}\n\n${enhanced.designReason ? `💡 设计思路：${enhanced.designReason}` : ''}`
         }]);
-        const operator = MEMBERS[3]; // Casey Mo – writer
-        injectEvent(
-          {
-            id: `script_update_${Date.now()}`,
-            actionType: 'script_update',
-            title: `镜头 #${scene.sceneNumber} AI 润色完成`,
-            summary: `分镜描述已由 AI 重写并优化，叙事更流畅`,
-            operatorId: operator.id,
-            timestamp: new Date().toISOString(),
-            timeAgo: '刚刚',
-            impactRoles: ['director', 'editor'],
-            priority: 'medium',
-            stage: 'script',
-          },
-          {
-            id: `sys_script_update_${Date.now()}`,
-            type: 'system',
-            systemType: 'task_completed',
-            authorId: operator.id,
-            description: `完成了镜头 #${scene.sceneNumber} 的 AI 润色`,
-            time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-            date: 'today',
-          }
-        );
       } else {
         console.error('AI润色失败:', result.error);
         alert(`AI润色失败：${result.error || '未知错误'}`);
@@ -995,9 +979,14 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
     } catch (error: any) {
       if (error?.name === 'AbortError' || error?.name === 'CanceledError') return;
       console.error('AI对话失败:', error);
+      const errMsg = (error?.message || '').includes('503')
+        ? 'AI 服务暂时不可用，请稍后再试。'
+        : (error?.message || '').includes('timeout')
+        ? 'AI 响应超时，请稍后重试或缩短指令。'
+        : '抱歉，遇到了一些问题，请重试或直接手动编辑分镜。';
       setConversationHistory(prev => [...prev, {
         role: 'assistant',
-        content: '抱歉，遇到了一些问题，请重试或直接手动编辑分镜。'
+        content: errMsg
       }]);
     } finally {
       abortControllerRef.current = null;
@@ -1005,15 +994,20 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
     }
   };
 
-  // 将 AI 返回的 changes 数组应用到 scenes
+  // 将 AI 返回的 changes 数组应用到 scenes，同时保存撤销快照并高亮变更场景
   const applyAiChanges = (changes: import('../api/scriptEditApi').AiChange[]) => {
     setScenes(prev => {
+      // 保存快照用于撤销
+      setUndoSnapshot(prev.map(s => ({ ...s })));
+
       let updated = prev.map(s => ({ ...s }));
+      const changedIds = new Set<string>();
 
       // 1. 先处理 edit（直接改字段）
       for (const c of changes) {
         if (c.type === 'edit' && c.sceneIndex !== undefined && c.sceneIndex >= 0 && c.sceneIndex < updated.length) {
           updated[c.sceneIndex] = { ...updated[c.sceneIndex], ...(c.fields || {}) };
+          changedIds.add(updated[c.sceneIndex].id);
         }
       }
 
@@ -1022,8 +1016,9 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
       adds.sort((a, b) => (b.afterIndex ?? 0) - (a.afterIndex ?? 0));
       for (const c of adds) {
         const insertAt = (c.afterIndex ?? -1) + 1; // afterIndex=-1 → insertAt=0
+        const newId = `scene-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const newScene = {
-          id: `scene-ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          id: newId,
           sceneNumber: insertAt + 1,
           description: '',
           assetType: 'ai_generated' as const,
@@ -1031,6 +1026,7 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
           ...(c.scene || {})
         };
         updated.splice(Math.max(0, insertAt), 0, newScene);
+        changedIds.add(newId);
       }
 
       // 3. 处理 delete（倒序删除，避免下标偏移）
@@ -1042,11 +1038,28 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
         }
       }
 
+      // 更新高亮集合，2.5秒后自动清除
+      if (changedIds.size > 0) {
+        setAiChangedIds(changedIds);
+        setTimeout(() => setAiChangedIds(new Set()), 2500);
+      }
+
       // 重新编号
       return updated.map((s, i) => ({ ...s, sceneNumber: i + 1 }));
     });
   };
 
+  // 撤销上一次 AI 操作
+  const handleUndoAiChanges = () => {
+    if (!undoSnapshot) return;
+    setScenes(undoSnapshot);
+    setUndoSnapshot(null);
+    setAiChangedIds(new Set());
+    setConversationHistory(prev => [...prev, {
+      role: 'assistant',
+      content: '✓ 已撤销上一次 AI 操作，分镜已恢复。'
+    }]);
+  };
 
   // 确认并继续创作 - 先保存项目再跳转到风格选择页
   const handleConfirmAndContinue = async () => {
@@ -1214,28 +1227,28 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
   const isRealShotSelected = selectedScene ? isRealShot(selectedScene) : false;
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden relative z-10">
+    <div className="nm-flow-page nm-script-editor-page flex-1 flex h-full overflow-hidden relative z-10">
       {/* ── Main Content ─────────────────────────────────── */}
       <div className="flex-1 relative flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-8 pb-32">
+        <div className="flex-1 overflow-y-auto px-4 py-6 pb-32 sm:p-8 sm:pb-32">
           <div className="max-w-screen-xl mx-auto">
 
             {/* Scene Header */}
-            <div className="flex items-center gap-6 mb-6">
-              <h2 className="text-xl font-medium text-neutral-900 dark:text-white tracking-wide uppercase flex items-center gap-3">
-                <div className="w-1.5 h-6 bg-cyan-500 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
-                {proposal.title || 'SCRIPT BREAKDOWN'}
+            <div className="nm-page-heading flex flex-col items-start gap-4 mb-6 sm:flex-row sm:items-center sm:gap-6">
+              <h2 className="flex w-full min-w-0 items-center gap-3 break-words text-lg font-medium tracking-wide text-neutral-900 dark:text-white sm:text-xl">
+                <div className="w-1.5 h-6 shrink-0 bg-cyan-500 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                {proposal.title || '脚本检查'}
               </h2>
-              <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 font-mono text-xs uppercase tracking-widest bg-neutral-200 dark:bg-white/5 px-3 py-1 rounded-full border border-neutral-300 dark:border-white/10">
-                <Sparkles size={12} className="text-cyan-400" />
-                <span>{scenes.length} SHOTS</span>
+              <div className="flex shrink-0 items-center gap-2 whitespace-nowrap text-neutral-600 dark:text-neutral-400 font-mono text-xs uppercase tracking-widest bg-neutral-200 dark:bg-white/5 px-3 py-1 rounded-full border border-neutral-300 dark:border-white/10">
+                <Sparkles size={12} className="shrink-0 text-cyan-400" />
+                <span>{scenes.length} 个分镜</span>
               </div>
               {/* Global Settings inline */}
-              <div className="flex items-center gap-3 ml-auto">
+              <div className="flex w-full flex-wrap items-center gap-3 sm:ml-auto sm:w-auto sm:flex-nowrap">
                 <select
                   value={aspectRatio}
                   onChange={(e) => setAspectRatio(e.target.value as any)}
-                  className="bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-neutral-700 dark:text-neutral-300 font-mono"
+                  className="min-w-20 bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-neutral-700 dark:text-neutral-300 font-mono"
                 >
                   <option value="16:9">16:9</option>
                   <option value="9:16">9:16</option>
@@ -1244,16 +1257,16 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
                 </select>
                 <button
                   onClick={handleAddScene}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-cyan-500/40 text-cyan-500 hover:bg-cyan-500/10 rounded-lg transition-colors font-mono tracking-wider"
+                  className="flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs border border-dashed border-cyan-500/40 text-cyan-500 hover:bg-cyan-500/10 rounded-lg transition-colors font-mono tracking-wider"
                 >
-                  <Plus size={14} />
-                  ADD SHOT
+                  <Plus size={14} className="shrink-0" />
+                  添加分镜
                 </button>
               </div>
             </div>
 
             {/* Global Style Settings */}
-            <div className="mb-6 bg-white/50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 rounded-xl p-4 grid grid-cols-2 gap-4">
+            <div className="nm-editorial-panel nm-page-field-panel mb-6 bg-white/50 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 rounded-xl p-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-[10px] font-mono text-neutral-500 dark:text-neutral-500 uppercase tracking-widest mb-2 block">🎨 视觉画风</label>
                 <textarea
@@ -1293,6 +1306,7 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
                       enhancingSceneId={enhancingSceneId}
                       newSceneIds={newSceneIds}
                       selectedSceneId={selectedSceneId}
+                      aiChangedIds={aiChangedIds}
                       isLast={index === scenes.length - 1}
                       onEditScene={handleEditScene}
                       onSaveScene={handleSaveScene}
@@ -1330,32 +1344,32 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
               className="mt-4 w-full py-4 border border-dashed border-neutral-300 dark:border-white/10 rounded-xl text-neutral-500 dark:text-neutral-500 hover:text-cyan-500 dark:hover:text-cyan-400 hover:border-cyan-400/50 hover:bg-cyan-500/5 transition-all flex items-center justify-center gap-2 group"
             >
               <Plus size={16} className="group-hover:scale-110 transition-transform" />
-              <span className="text-sm font-medium font-mono tracking-wider">ADD SHOT</span>
+              <span className="text-sm font-medium font-mono tracking-wider">添加分镜</span>
             </button>
           </div>
         </div>
 
         {/* Bottom Action Bar */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-neutral-50 via-neutral-50/90 dark:from-[#050505] dark:via-[#050505]/80 to-transparent flex items-center justify-between z-20 pointer-events-none">
-          <div className="text-xs font-mono text-neutral-500 dark:text-neutral-600 pointer-events-auto">
-            {scenes.length} SHOTS · {scenes.filter(s => s.assetType === 'real_footage' || s.assetType === 'image').length} REAL
+        <div className="nm-day-action-bar absolute bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-neutral-50 via-neutral-50/90 dark:from-[#050505] dark:via-[#050505]/80 to-transparent flex flex-col items-stretch justify-between gap-3 z-20 pointer-events-none sm:flex-row sm:items-center">
+          <div className="text-xs font-mono text-neutral-500 dark:text-neutral-600 pointer-events-auto text-center sm:text-left">
+            {scenes.length} 个分镜 · {scenes.filter(s => s.assetType === 'real_footage' || s.assetType === 'image').length} 个实拍素材
           </div>
-          <div className="flex items-center gap-3 pointer-events-auto">
+          <div className="flex items-center justify-center gap-3 pointer-events-auto">
             <button
               onClick={handleGoBack}
               disabled={isSaving}
               className="flex items-center gap-2 px-4 py-2.5 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 rounded-xl transition-colors font-mono tracking-wider"
             >
               {isSaving ? <Loader2 size={14} className="animate-spin" /> : null}
-              {isSaving ? 'SAVING...' : 'BACK'}
+              {isSaving ? '保存中...' : '返回'}
             </button>
             <motion.button
               whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(34,211,238,0.6)' }}
               whileTap={{ scale: 0.98 }}
               onClick={handleConfirmAndContinue}
-              className="flex items-center gap-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-10 py-3 rounded-full font-medium transition-all shadow-[0_0_20px_rgba(34,211,238,0.4)] border border-white/20 font-mono tracking-widest text-sm uppercase"
+              className="flex flex-1 items-center justify-center gap-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-6 py-3 rounded-full font-medium transition-all shadow-[0_0_20px_rgba(34,211,238,0.4)] border border-white/20 font-mono tracking-widest text-sm sm:flex-none sm:px-10"
             >
-              Choose Style
+              选择风格
               <ChevronRight size={16} />
             </motion.button>
           </div>
@@ -1371,11 +1385,11 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             onClick={() => setAiSidebarOpen(true)}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5 px-1.5 py-4 bg-black/60 dark:bg-black/80 backdrop-blur-xl border-l border-t border-b border-white/10 rounded-l-xl text-cyan-400 hover:text-cyan-300 hover:bg-black/80 transition-all shadow-xl"
-            title="打开 AI 助手"
+            className="nm-day-edge-tab absolute right-0 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5 px-1.5 py-4 bg-black/60 dark:bg-black/80 backdrop-blur-xl border-l border-t border-b border-white/10 rounded-l-xl text-cyan-400 hover:text-cyan-300 hover:bg-black/80 transition-all shadow-xl"
+            title="打开 AI 改稿助手"
           >
             <BotMessageSquare size={16} />
-            <span className="text-[9px] font-mono tracking-widest uppercase" style={{ writingMode: 'vertical-rl' }}>AI</span>
+            <span className="text-[9px] font-mono tracking-widest" style={{ writingMode: 'vertical-rl' }}>改稿</span>
             <ChevronLeft size={12} className="opacity-60" />
           </motion.button>
         ) : (
@@ -1385,11 +1399,11 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             onClick={() => setAiSidebarOpen(false)}
-            className="absolute right-80 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5 px-1.5 py-4 bg-black/60 dark:bg-black/80 backdrop-blur-xl border-l border-t border-b border-white/10 rounded-l-xl text-neutral-400 hover:text-cyan-300 hover:bg-black/80 transition-all shadow-xl"
-            title="收起 AI 助手"
+            className="nm-day-edge-tab hidden md:flex absolute right-80 top-1/2 -translate-y-1/2 z-30 flex-col items-center gap-1.5 px-1.5 py-4 bg-black/60 dark:bg-black/80 backdrop-blur-xl border-l border-t border-b border-white/10 rounded-l-xl text-neutral-400 hover:text-cyan-300 hover:bg-black/80 transition-all shadow-xl"
+            title="收起 AI 改稿助手"
           >
             <BotMessageSquare size={16} className="text-cyan-400" />
-            <span className="text-[9px] font-mono tracking-widest uppercase text-cyan-400" style={{ writingMode: 'vertical-rl' }}>AI</span>
+            <span className="text-[9px] font-mono tracking-widest text-cyan-400" style={{ writingMode: 'vertical-rl' }}>改稿</span>
             <ChevronRight size={12} className="opacity-60" />
           </motion.button>
         )}
@@ -1398,26 +1412,45 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
       {/* ── Right AI Sidebar ─────────────────────────────── */}
       <AnimatePresence initial={false}>
         {aiSidebarOpen && (
-          <motion.div
-            key="ai-sidebar"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 320, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="border-l border-neutral-200 dark:border-white/10 bg-white/90 dark:bg-[#0d0d0d]/95 backdrop-blur-2xl flex flex-col shrink-0 z-20 overflow-hidden"
-          >
-            <div className="w-80 flex flex-col h-full">
+          <>
+            <motion.button
+              key="ai-mobile-backdrop"
+              type="button"
+              aria-label="关闭 AI 改稿助手"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setAiSidebarOpen(false)}
+              className="absolute inset-0 z-30 bg-black/45 backdrop-blur-sm md:hidden"
+            />
+            <motion.div
+              key="ai-sidebar"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 24 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="nm-day-sidebar absolute inset-y-0 right-0 z-40 flex w-[calc(100vw-48px)] max-w-[340px] flex-col overflow-hidden border-l border-neutral-200 bg-white/95 shadow-2xl backdrop-blur-2xl dark:border-white/10 dark:bg-[#0d0d0d]/95 md:relative md:right-auto md:z-20 md:w-80 md:max-w-none md:shrink-0 md:shadow-none"
+            >
+            <div className="w-full md:w-80 flex flex-col h-full">
               {/* Sidebar Header */}
               <div className="p-4 border-b border-neutral-200 dark:border-white/10 flex items-center justify-between bg-neutral-50/80 dark:bg-black/30 shrink-0">
                 <div className="flex items-center gap-2">
                   <Sparkles size={15} className="text-cyan-500 dark:text-cyan-400" />
                   <span className="font-medium text-sm text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-blue-600 dark:from-cyan-400 dark:to-blue-500 tracking-wide uppercase">
-                    AI Co-writer
+                    AI 改稿助手
                   </span>
                 </div>
                 <span className="text-[10px] font-mono bg-neutral-200/60 dark:bg-white/5 text-neutral-500 dark:text-neutral-400 px-2 py-0.5 rounded border border-neutral-300/50 dark:border-white/10">
-                  {selectedSceneId ? `SHOT ${selectedScene?.sceneNumber}` : 'GLOBAL'}
+                  {selectedSceneId ? `分镜 ${selectedScene?.sceneNumber}` : '全局'}
                 </span>
+                <button
+                  onClick={() => setAiSidebarOpen(false)}
+                  className="md:hidden text-neutral-500 hover:text-neutral-200 transition-colors"
+                  aria-label="关闭 AI 改稿助手"
+                >
+                  <X size={14} />
+                </button>
               </div>
 
               {/* Mode Status */}
@@ -1532,9 +1565,20 @@ export const ScriptEditorPage: React.FC<ScriptEditorPageProps> = () => {
                     发送
                   </button>
                 )}
+                {/* Undo button — only when AI has made changes */}
+                {undoSnapshot && !aiLoading && (
+                  <button
+                    onClick={handleUndoAiChanges}
+                    className="w-full flex items-center justify-center gap-2 py-2 border border-neutral-300/60 dark:border-white/10 hover:border-orange-400/60 rounded-xl text-xs text-neutral-500 dark:text-neutral-400 hover:text-orange-400 dark:hover:text-orange-400 hover:bg-orange-500/5 transition-all font-mono tracking-wider"
+                  >
+                    <RefreshCw size={12} />
+                    撤销上次 AI 操作
+                  </button>
+                )}
               </div>
             </div>
-          </motion.div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

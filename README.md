@@ -127,8 +127,8 @@ VOLCENGINE_SECRET_KEY=your_secret_key
 # ARK API Key（Seedream 图像生成 / AI 文本）
 ARK_API_KEY=your_ark_api_key
 
-# 服务端口（默认 3000）
-PORT=3000
+# 服务端口（默认 4300）
+PORT=4300
 
 # 公网 URL（可选，用于图片 URL 转换，如使用 ngrok 时填写）
 # PUBLIC_URL=https://xxxx.ngrok.io
@@ -153,7 +153,7 @@ npm run dev   # 开发模式（nodemon 热重载）
 npm start     # 生产模式
 ```
 
-后端默认运行在 `http://localhost:3000`
+后端默认运行在 `http://localhost:4300`
 
 ### 4. 启动前端
 
@@ -162,7 +162,7 @@ cd frontend
 npm run dev
 ```
 
-前端默认运行在 `http://localhost:5173`，访问该地址即可使用。
+前端默认运行在 `http://localhost:4301`，访问该地址即可使用。
 
 ### 5. 启动 TTS 服务（可选）
 
@@ -198,7 +198,7 @@ ngrok http 8188
 
 ## 快速使用
 
-1. 打开 `http://localhost:5173`，点击 **新建项目**
+1. 打开 `http://localhost:4301`，点击 **新建项目**
 2. 在输入框描述你的视频主题（如"一段赛博朋克城市夜景的宣传片"）
 3. 选择生成模式：纯 AI / AI + 真实素材 / 纯真实素材
 4. 点击 **生成** → AI 自动生成剧本和场景拆解

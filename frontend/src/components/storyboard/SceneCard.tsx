@@ -105,12 +105,12 @@ export const SceneCard: React.FC<SceneCardProps> = ({
     // 如果是本地路径，直接使用（不通过代理）
     if (originalUrl.startsWith('/uploads/') || originalUrl.startsWith('uploads/')) {
       const directUrl = originalUrl.startsWith('/') ? originalUrl : `/${originalUrl}`;
-      console.log('[SceneCard] 使用直接URL:', `http://localhost:3000${directUrl}`);
-      return `http://localhost:3000${directUrl}`;
+      console.log('[SceneCard] 使用直接URL:', `http://localhost:4300${directUrl}`);
+      return `http://localhost:4300${directUrl}`;
     }
     
     // 远程URL通过代理
-    const proxiedUrl = `http://localhost:3000/api/v1/proxy/video?url=${encodeURIComponent(originalUrl)}`;
+    const proxiedUrl = `http://localhost:4300/api/v1/proxy/video?url=${encodeURIComponent(originalUrl)}`;
     console.log('[SceneCard] 使用代理URL:', proxiedUrl);
     return proxiedUrl;
   };

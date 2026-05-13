@@ -3,7 +3,7 @@
  * 用于前端调用音频生成服务
  */
 
-const API_BASE_URL = 'http://localhost:3000/api/v1/audio';
+const API_BASE_URL = 'http://localhost:4300/api/v1/audio';
 
 export interface AudioGenerationParams {
   prompt: string;
@@ -204,7 +204,7 @@ export async function generateAndWait(
     throw new Error('音频文件 URL 不存在');
   }
   
-  return `http://localhost:3000${completedTask.outputFileUrl}`;
+  return `http://localhost:4300${completedTask.outputFileUrl}`;
 }
 
 /**
@@ -214,7 +214,7 @@ export function getAudioUrl(fileUrl: string): string {
   if (fileUrl.startsWith('http')) {
     return fileUrl;
   }
-  return `http://localhost:3000${fileUrl}`;
+  return `http://localhost:4300${fileUrl}`;
 }
 
 /**

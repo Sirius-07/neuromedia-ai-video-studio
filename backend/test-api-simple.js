@@ -3,12 +3,12 @@ import axios from 'axios';
 console.log('测试 API...\n');
 
 // 测试健康检查
-axios.get('http://localhost:3000/health')
+axios.get('http://localhost:4300/health')
   .then(res => {
     console.log('✓ 健康检查通过:', res.data);
     
     // 测试创建任务
-    return axios.post('http://localhost:3000/api/v1/soundtrack/create', {
+    return axios.post('http://localhost:4300/api/v1/soundtrack/create', {
       videoId: 'https://1926289158.tos-cn-guangzhou.volces.com/a1.mp4'
     });
   })

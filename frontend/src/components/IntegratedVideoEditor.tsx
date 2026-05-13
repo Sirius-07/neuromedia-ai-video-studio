@@ -210,7 +210,7 @@ export const IntegratedVideoEditor: React.FC<IntegratedVideoEditorProps> = ({
   // Audio Initialization
   useEffect(() => {
     if (editedBgm && !bgmAudioRef.current) {
-      const bgmAudio = new Audio(`http://localhost:3000${editedBgm.file_url}`)
+      const bgmAudio = new Audio(`http://localhost:4300${editedBgm.file_url}`)
       bgmAudio.loop = false
       bgmAudio.volume = editedBgm.volume
       bgmAudioRef.current = bgmAudio
@@ -218,7 +218,7 @@ export const IntegratedVideoEditor: React.FC<IntegratedVideoEditorProps> = ({
 
     editedEffects.forEach((effect, index) => {
       if (!effectAudiosRef.current.has(index)) {
-        const audio = new Audio(`http://localhost:3000${effect.file_url}`)
+        const audio = new Audio(`http://localhost:4300${effect.file_url}`)
         audio.volume = effect.volume
         effectAudiosRef.current.set(index, audio)
       }
@@ -609,7 +609,7 @@ export const IntegratedVideoEditor: React.FC<IntegratedVideoEditorProps> = ({
         previewAudioRef.current.pause()
         previewAudioRef.current = null
       }
-      const audio = new Audio(`http://localhost:3000${url}`)
+      const audio = new Audio(`http://localhost:4300${url}`)
       audio.volume = volume
       audio.play().catch(() => {})
       previewAudioRef.current = audio
@@ -1120,7 +1120,7 @@ export const IntegratedVideoEditor: React.FC<IntegratedVideoEditorProps> = ({
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <a
-                          href={`http://localhost:3000${assetMap.mergedVideo.videoUrl}`}
+                          href={`http://localhost:4300${assetMap.mergedVideo.videoUrl}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center justify-center gap-2 py-2 bg-card border border-border hover:bg-accent text-foreground rounded-md text-xs transition-colors"
@@ -1128,7 +1128,7 @@ export const IntegratedVideoEditor: React.FC<IntegratedVideoEditorProps> = ({
                           <Eye size={12} /> 预览
                         </a>
                         <a
-                          href={`http://localhost:3000${assetMap.mergedVideo.videoUrl}`}
+                          href={`http://localhost:4300${assetMap.mergedVideo.videoUrl}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center justify-center gap-2 py-2 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 rounded-md text-xs transition-colors"

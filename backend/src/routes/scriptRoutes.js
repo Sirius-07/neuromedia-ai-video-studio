@@ -16,8 +16,11 @@ const storage = multer.diskStorage({
     const timestamp = Date.now();
     const uniqueId = uuidv4().substring(0, 8);
     const ext = path.extname(file.originalname);
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 50);
-    cb(null, `${timestamp}_${uniqueId}_${safeName}`);
+    const safeBaseName = path
+      .basename(file.originalname, ext)
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .substring(0, 48);
+    cb(null, `${timestamp}_${uniqueId}_${safeBaseName}${ext}`);
   }
 });
 
@@ -142,6 +145,5 @@ router.post('/upload-batch', upload.array('files', 10), (req, res) => {
 });
 
 export default router;
-
 
 

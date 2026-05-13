@@ -1,5 +1,5 @@
 // storyboard/assistant/StoryboardActionPreview.tsx
-// AI Director 建议操作的 diff 预览组件
+// AI 分镜助手建议操作的 diff 预览组件
 // 在用户确认前展示结构化的"旧值 → 新值"对比，风格与 ScriptAssistantActionPreview 保持一致
 
 import React, { useState } from "react";
@@ -111,10 +111,14 @@ const ACTION_META: Record<StoryboardAction["type"], ActionMeta> = {
 // 工具函数
 // ─────────────────────────────────────────────────────────────
 
-/** 根据 shotId 在 scenes 中查找，返回"Shot N"标签；找不到时降级显示 id */
+/** 根据 shotId 在 scenes 中查找，返回"分镜 N"标签；找不到时降级显示 id */
 function getShotLabel(scenes: Scene[], shotId: number): string {
   const idx = scenes.findIndex((s) => s.id === shotId);
-  return idx === -1 ? `Shot #${shotId}` : `Shot ${idx + 1}`;
+  return idx === -1 ? `分镜 ${shotId}` : `分镜 ${idx + 1}`;
+}
+
+function getModeLabel(mode: "image" | "video"): string {
+  return mode === "image" ? "图片" : "视频";
 }
 
 /** 从 scene 中读取某字段的当前值（对特殊嵌套字段做兼容处理） */
@@ -180,7 +184,7 @@ function getActionSummary(action: StoryboardAction, scenes: Scene[]): string {
       return `${getShotLabel(scenes, action.shotId)} · 重新生成${target}`;
     }
     case "regenerate_storyboard":
-      return `全部 ${scenes.length} 个分镜 · 重新生成（${action.mode} 模式）`;
+      return `全部 ${scenes.length} 个分镜 · 重新生成（${getModeLabel(action.mode)}模式）`;
     case "ask_user":
       return action.question.length > 36
         ? action.question.slice(0, 36) + "…"

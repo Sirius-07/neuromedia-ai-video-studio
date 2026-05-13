@@ -131,7 +131,7 @@ export const LiteEditorView: React.FC<LiteEditorViewProps> = ({
   useEffect(() => {
     // 初始化BGM
     if (backgroundMusic && !bgmAudioRef.current) {
-      const bgmAudio = new Audio(`http://localhost:3000${backgroundMusic.file_url}`)
+      const bgmAudio = new Audio(`http://localhost:4300${backgroundMusic.file_url}`)
       bgmAudio.loop = false
       bgmAudio.volume = backgroundMusic.volume
       bgmAudioRef.current = bgmAudio
@@ -140,7 +140,7 @@ export const LiteEditorView: React.FC<LiteEditorViewProps> = ({
     // 初始化音效
     soundEffects.forEach((effect, index) => {
       if (!effectAudiosRef.current.has(index)) {
-        const audio = new Audio(`http://localhost:3000${effect.file_url}`)
+        const audio = new Audio(`http://localhost:4300${effect.file_url}`)
         audio.volume = effect.volume
         effectAudiosRef.current.set(index, audio)
       }
@@ -437,7 +437,7 @@ export const LiteEditorView: React.FC<LiteEditorViewProps> = ({
     }
     
     // 开始新的播放
-    const audio = new Audio(`http://localhost:3000${event.fileUrl}`)
+    const audio = new Audio(`http://localhost:4300${event.fileUrl}`)
     audio.volume = event.volume
     audio.play().catch(() => {})
     previewAudioRef.current = audio
@@ -548,7 +548,7 @@ export const LiteEditorView: React.FC<LiteEditorViewProps> = ({
         }
 
         // 重新初始化音频对象
-        const audio = new Audio(`http://localhost:3000${completedTask.outputFileUrl}`)
+        const audio = new Audio(`http://localhost:4300${completedTask.outputFileUrl}`)
         audio.volume = updatedEffect.volume
         effectAudiosRef.current.set(effectIndex, audio)
       } else if (event.type === 'bgm' && backgroundMusic) {
@@ -566,7 +566,7 @@ export const LiteEditorView: React.FC<LiteEditorViewProps> = ({
         }
 
         // 重新初始化 BGM 音频对象
-        const audio = new Audio(`http://localhost:3000${completedTask.outputFileUrl}`)
+        const audio = new Audio(`http://localhost:4300${completedTask.outputFileUrl}`)
         audio.volume = updatedBgm.volume
         audio.loop = false
         bgmAudioRef.current = audio

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { generateFFmpegFilterString, VideoEffectsParams } from '../hooks/useVideoEffects';
 
-const API_BASE_URL = 'http://localhost:3000/api/v1';
+const API_BASE_URL = 'http://localhost:4300/api/v1';
 
 /**
  * 应用后期处理效果到视频

@@ -4,7 +4,7 @@
  * 解决 localStorage 不可靠的问题，使用后端数据库存储
  */
 
-const API_BASE_URL = 'http://localhost:3000/api/v1/storyboard';
+const API_BASE_URL = 'http://localhost:4300/api/v1/storyboard';
 
 export interface Scene {
   id: number;

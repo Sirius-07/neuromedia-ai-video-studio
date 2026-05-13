@@ -5,7 +5,7 @@
 
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3000/api/v1/image';
+const API_URL = 'http://localhost:4300/api/v1/image';
 
 async function testComfyUIImageToVideo() {
   console.log('🧪 测试 ComfyUI wan2.2 图生视频...\n');
@@ -58,7 +58,7 @@ async function testComfyUIImageToVideo() {
       console.error('错误信息:', error.response.data);
     } else if (error.request) {
       console.error('无响应，请检查:');
-      console.error('1. 后端服务是否运行 (http://localhost:3000)');
+      console.error('1. 后端服务是否运行 (http://localhost:4300)');
       console.error('2. ComfyUI 是否运行 (http://127.0.0.1:8188)');
       console.error('3. COMFYUI_API_URL 环境变量是否正确');
     } else {

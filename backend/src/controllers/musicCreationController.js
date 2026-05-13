@@ -200,7 +200,7 @@ export const createMusicCreationTask = async (req, res) => {
           console.error(`[${taskId}] ⚠️ TOS上传失败，将使用本地文件路径:`, uploadError.message);
           
           // 如果TOS上传失败，尝试使用本地URL（仅用于开发环境）
-          const publicUrl = process.env.PUBLIC_URL || 'http://localhost:3000';
+          const publicUrl = process.env.PUBLIC_URL || 'http://localhost:4300';
           tosUrl = `${publicUrl}${concatResult.videoUrl}`;
           
           console.log(`[${taskId}] ⚠️ 使用本地URL: ${tosUrl}`);

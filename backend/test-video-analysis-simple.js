@@ -14,7 +14,7 @@ async function test() {
   try {
     // 创建任务
     console.log('[1] 创建任务...');
-    const createRes = await axios.post('http://localhost:3000/api/v1/soundtrack/create', {
+    const createRes = await axios.post('http://localhost:4300/api/v1/soundtrack/create', {
       videoId: VIDEO_URL
     });
     
@@ -29,7 +29,7 @@ async function test() {
       await new Promise(r => setTimeout(r, 5000));
       count++;
       
-      const statusRes = await axios.get(`http://localhost:3000/api/v1/soundtrack/task/${taskId}`);
+      const statusRes = await axios.get(`http://localhost:4300/api/v1/soundtrack/task/${taskId}`);
       const task = statusRes.data.data;
       
       process.stdout.write(`\r   进度: ${count}/60, 状态: ${task.status}    `);

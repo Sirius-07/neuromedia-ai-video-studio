@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, LayoutTemplate, Download, Loader2, GripVertical, AlertTriangle, Sparkles, CheckCircle2, FileVideo, UploadCloud, BrainCircuit, Music, Mic, ImagePlus, Video, Plus, Copy, Trash2, Image as ImageIcon, Film, Clock, GripHorizontal, Undo2, Send, RefreshCw, Bot, ChevronRight, Lightbulb, Square, Play } from 'lucide-react';
+import { ArrowRight, LayoutTemplate, Download, Loader2, GripVertical, AlertTriangle, Sparkles, CheckCircle2, FileVideo, UploadCloud, BrainCircuit, Music, ImagePlus, Video, Plus, Copy, Trash2, Image as ImageIcon, Film, Clock, GripHorizontal, Undo2, Send, RefreshCw, Bot, ChevronRight, Lightbulb, Square, Play, MoreHorizontal, SlidersHorizontal } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Inspector } from './Inspector';
 import { SceneCard } from './SceneCard';
 import { AiTransitionCard } from './AiTransitionCard';
-import { VoiceoverGenerationDialog } from './VoiceoverGenerationDialog';
 import { Scene } from './types';
 import { ScriptResponse, generateScriptAsync, ScriptTaskStatus } from '../../api/scriptApi';
 import * as comfyuiApi from '../../api/comfyuiApi';
@@ -21,6 +20,17 @@ import { addStyleToPrompt } from '../../utils/stylePrompts';
 import { buildCinematicPrompt } from './promptUtils';
 import { chatWithAI, type ChatMessage as AiChatMessage, type AiChange } from '../../api/scriptEditApi';
 import StoryboardDirectorPanel from './assistant/StoryboardDirectorPanel';
+import { shouldShowAdvancedSceneParameters } from './advancedSceneExpansion';
+import {
+  buildCreationSettings,
+  createCreationIntent,
+  DEFAULT_CREATION_ART_STYLE,
+  DEFAULT_CREATION_ASPECT_RATIO,
+  mergeCreationIntentFromProject,
+  shouldSkipLegacyAutoScriptGeneration,
+  type CreationAspectRatio,
+  type CreationIntent,
+} from '../../types/creationIntent';
 
 // ============================================================
 // localStorage 持久化键名
@@ -99,15 +109,59 @@ const clearAllStorage = () => {
 const proxyVideoUrl = (url: string): string => {
   if (!url) return url;
   // 已经是代理 URL，不重复处理
-  if (url.startsWith('http://localhost:3000/')) return url;
+  if (url.startsWith('http://localhost:4300/')) return url;
   // 本地上传路径
   if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
     const path = url.startsWith('/') ? url : `/${url}`;
-    return `http://localhost:3000${path}`;
+    return `http://localhost:4300${path}`;
   }
   // 远程 URL 通过代理
-  return `http://localhost:3000/api/v1/proxy/video?url=${encodeURIComponent(url)}`;
+  return `http://localhost:4300/api/v1/proxy/video?url=${encodeURIComponent(url)}`;
 };
+
+const resolveLocalAssetUrl = (url: string): string => {
+  if (!url) return url;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
+    const path = url.startsWith('/') ? url : `/${url}`;
+    return `http://localhost:4300${path}`;
+  }
+  return url;
+};
+
+const cleanStoryboardText = (value?: string): string =>
+  String(value || '')
+    .replace(/\s+/g, ' ')
+    .replace(/[，。；;,.、\s]+$/g, '')
+    .trim();
+
+const getStoryboardPreviewText = (scene: Scene): string => {
+  const source = cleanStoryboardText(scene.script || scene.visualPrompt || scene.narration || '');
+  if (!source) return '还没有填写这一镜的画面重点';
+
+  const parts = source
+    .split(/(?<=[。！？；;])/)
+    .map(cleanStoryboardText)
+    .filter(Boolean);
+  const preview = (parts.length > 0 ? parts.slice(0, 2).join('。') : source).replace(/。+/g, '。');
+  return preview.length > 92 ? `${preview.slice(0, 92)}...` : preview;
+};
+
+const getUploadedAssetName = (asset: any, index: number): string => {
+  const rawName = asset?.name || asset?.file_name || asset?.filename || `素材 ${index + 1}`;
+  const name = String(rawName).replace(/\.[^.]+$/, '');
+  if (/^[a-f0-9]{18,}$/i.test(name) || /^\d{12,}/.test(name)) {
+    return `图片 ${index + 1}`;
+  }
+  return name.length > 18 ? `${name.slice(0, 16)}...` : name;
+};
+
+const clampTextStyle = (lines: number): React.CSSProperties => ({
+  display: '-webkit-box',
+  WebkitLineClamp: lines,
+  WebkitBoxOrient: 'vertical',
+  overflow: 'hidden',
+});
 
 /**
  * 将前端场景格式转换为API/数据库标准格式
@@ -227,7 +281,7 @@ const convertApiSceneToScene = (apiScene: any, index: number, aspectRatio?: stri
       // AI 生成相关
       visualPrompt: apiScene.visual_description || '',
       motionPrompt: apiScene.camera_movement || apiScene.cameraMovement || apiScene.motion_prompt || apiScene.motionPrompt || '',
-      generationStatus: (apiScene.generation_status || 'idle') as any,
+      generationStatus: (apiScene.generation_status || (assetUrl ? 'image_selected' : 'idle')) as any,
       
       // ⭐ 图片分辨率设置（根据画幅比例）
       imageResolution: apiScene.imageResolution || getImageResolutionByAspectRatio(aspectRatio),
@@ -287,7 +341,7 @@ const convertApiSceneToScene = (apiScene: any, index: number, aspectRatio?: stri
       sceneType = 'ai';
       assetUrl = assetPath;
       footageStatus = 'filled';
-      generationStatus = 'idle'; // 需要进行图生视频
+      generationStatus = 'image_selected'; // 已有图片素材，可直接进入图生视频
       console.log(`[convertApiSceneToScene] 场景${index + 1}: 图片素材，需要图生视频`, assetUrl);
     } else if (apiScene.type === 'ai_generated') {
       // 纯AI生成
@@ -809,6 +863,7 @@ interface LocationState {
   projectId?: string;
   uploadedAssets?: any[];
   generationMode?: string;
+  creationIntent?: CreationIntent;
   inspirationProposal?: any; // 灵感激发模式选择的方案
   
   isGenerating?: boolean; // 标记是否需要触发脚本生成
@@ -831,16 +886,17 @@ export const VisualStoryboardPage = () => {
   
   // 从 location.state 和 URL 获取数据
   const locationState = location.state as LocationState | null;
+  const intentFromRoute = locationState?.creationIntent;
   const scriptData = locationState?.scriptData;
-  const userPrompt = locationState?.userPrompt;
-  const uploadedAssets = locationState?.uploadedAssets;
-  const generationMode = locationState?.generationMode;
-  const inspirationProposal = locationState?.inspirationProposal; // 灵感方案
+  const userPrompt = intentFromRoute?.prompt || locationState?.userPrompt;
+  const uploadedAssets = intentFromRoute?.uploadedAssets || locationState?.uploadedAssets;
+  const generationMode = intentFromRoute?.generationMode || locationState?.generationMode;
+  const inspirationProposal = intentFromRoute?.selectedProposal || locationState?.inspirationProposal; // 灵感方案
   const shouldGenerate = locationState?.isGenerating; // 是否需要生成脚本
   
   // ⭐ 从脚本编辑页面传递的参数
-  const aspectRatioFromScript = locationState?.aspectRatio; // 画幅比例
-  const artStyleFromScript = locationState?.artStyle; // 艺术风格
+  const aspectRatioFromScript = intentFromRoute?.aspectRatio || locationState?.aspectRatio; // 画幅比例
+  const artStyleFromScript = intentFromRoute?.artStyle || locationState?.artStyle; // 艺术风格
   const customScenesFromScript = locationState?.customScenes; // 用户编辑的场景
   const inspirationDataFromScript = locationState?.inspirationData; // 灵感数据
   
@@ -875,6 +931,13 @@ export const VisualStoryboardPage = () => {
   const [savedUserPrompt, setSavedUserPrompt] = useState<string | undefined>(userPrompt);
   const [savedUploadedAssets, setSavedUploadedAssets] = useState<any[] | undefined>(uploadedAssets);
   const [savedGenerationMode, setSavedGenerationMode] = useState<string | undefined>(generationMode);
+  const [workbenchIntent, setWorkbenchIntent] = useState<CreationIntent | null>(intentFromRoute || null);
+  const [workbenchAspectRatio, setWorkbenchAspectRatio] = useState<CreationAspectRatio>(
+    (aspectRatioFromScript || DEFAULT_CREATION_ASPECT_RATIO) as CreationAspectRatio
+  );
+  const [workbenchArtStyle, setWorkbenchArtStyle] = useState(artStyleFromScript || DEFAULT_CREATION_ART_STYLE);
+  const [isQuickAutomationPaused, setIsQuickAutomationPaused] = useState(false);
+  const quickAutomationStartedRef = useRef(false);
 
   // ============================================================
   // 初始化数据（优先级处理）
@@ -891,6 +954,9 @@ export const VisualStoryboardPage = () => {
         if (sceneItem.assetType === 'real_footage' || sceneItem.assetType === 'image') {
           sceneType = 'real';
         }
+        const linkedAssetUrl = sceneItem.assetUrl
+          || sceneItem.reference_asset_path
+          || (sceneItem.assetId ? uploadedAssets?.find((a: any) => a.id === sceneItem.assetId)?.url : undefined);
         
         return {
           id: index + 1,
@@ -901,13 +967,13 @@ export const VisualStoryboardPage = () => {
           isAiGenerated: true,
           visualPrompt: sceneItem.visualPrompt || `${sceneItem.description}. ${sceneItem.visualStyle || ''}`,
           motionPrompt: sceneItem.motionPrompt || sceneItem.cameraMovement || '',
-          generationStatus: 'idle' as const,
-          footageStatus: 'empty' as const,
+          generationStatus: linkedAssetUrl ? 'image_selected' as const : 'idle' as const,
+          footageStatus: linkedAssetUrl ? 'filled' as const : 'empty' as const,
+          assetUrl: linkedAssetUrl,
           imageResolution: getImageResolutionByAspectRatio(aspectRatioFromScript),
           postProcessing: {},
           transitionType: 'none' as const,
           // 如果有关联的素材
-          assetUrl: sceneItem.assetId ? uploadedAssets?.find((a: any) => a.id === sceneItem.assetId)?.url : undefined,
           // 摄影参数（从脚本编辑页透传）
           size: sceneItem.size || '',
           perspective: sceneItem.perspective || '',
@@ -961,8 +1027,9 @@ export const VisualStoryboardPage = () => {
           isAiGenerated: true,
           visualPrompt: `${scene.description}. ${inspirationProposal.visualStyle || ''}. ${scene.visualStyle || ''}`,
           motionPrompt: scene.cameraMovement || scene.camera_movement || '',
-          generationStatus: 'idle' as const,
-          footageStatus: 'empty' as const,
+          generationStatus: (scene.assetPath || scene.reference_asset_path) ? 'image_selected' as const : 'idle' as const,
+          footageStatus: (scene.assetPath || scene.reference_asset_path) ? 'filled' as const : 'empty' as const,
+          assetUrl: scene.assetPath || scene.reference_asset_path || undefined,
           // 摄影参数
           size: scene.size || scene.shot_size || '',
           perspective: scene.perspective || '',
@@ -1050,10 +1117,7 @@ export const VisualStoryboardPage = () => {
   
   // 交互状态：悬停和展开
   const [hoveredSceneId, setHoveredSceneId] = useState<number | null>(null);
-  const [expandedSceneIds, setExpandedSceneIds] = useState<number[]>([]);
-  
-  // 配音生成对话框
-  const [showVoiceoverDialog, setShowVoiceoverDialog] = useState(false);
+  const [isAdvancedMode, setIsAdvancedMode] = useState(false);
   
   // 批量生成状态
   const [isBatchGeneratingImages, setIsBatchGeneratingImages] = useState(false);
@@ -1077,45 +1141,6 @@ export const VisualStoryboardPage = () => {
     failCount: number;
   }>({ type: 'image', count: 0, successCount: 0, failCount: 0 });
 
-  const handleToggleExpansion = (id: number) => {
-    setExpandedSceneIds(prev => {
-      // 如果点击的是已展开的，则收起（返回空数组或其他）
-      if (prev.includes(id)) {
-        return [];
-      }
-      // 否则只展开当前这个，收起其他所有
-      return [id];
-    });
-  };
-  
-  // 处理配音生成成功
-  const handleVoiceoverSuccess = async (updatedScenes: Scene[]) => {
-    setScenes(updatedScenes);
-    setShowVoiceoverDialog(false);
-    
-    // 💾 保存到数据库
-    if (projectId) {
-      console.log('[VisualStoryboardPage] 💾 配音生成后保存到数据库...');
-      try {
-        const normalizedScenes = updatedScenes.map(scene => normalizeSceneForSave(scene));
-        const saveResult = await saveStoryboard(projectId, {
-          scenes: normalizedScenes,
-          title: projectTitle,
-          userPrompt: savedUserPrompt,
-          uploadedAssets: savedUploadedAssets,
-          generationMode: savedGenerationMode
-        });
-        if (saveResult.success) {
-          console.log('[VisualStoryboardPage] ✅ 配音更新已保存到数据库');
-        } else {
-          console.error('[VisualStoryboardPage] ⚠️ 保存到数据库失败:', saveResult.error);
-        }
-      } catch (saveError) {
-        console.error('[VisualStoryboardPage] ❌ 保存到数据库异常:', saveError);
-      }
-    }
-  };
-  
   // 可调整侧边栏宽度（新 UI 不再使用，保留避免报错）
   const leftSidebarWidth = 250;
   const rightSidebarWidth = 300;
@@ -1134,6 +1159,80 @@ export const VisualStoryboardPage = () => {
   const [isAiDirectorLoading, setIsAiDirectorLoading] = useState(false);
   const aiDirectorAbortRef = useRef<AbortController | null>(null);
   const aiDirectorChatEndRef = useRef<HTMLDivElement | null>(null);
+
+  const getWorkbenchIntentForSave = useCallback((): CreationIntent | null => {
+    if (workbenchIntent) {
+      return {
+        ...workbenchIntent,
+        prompt: savedUserPrompt || workbenchIntent.prompt,
+        uploadedAssets: (savedUploadedAssets as any) || workbenchIntent.uploadedAssets,
+        generationMode: (savedGenerationMode as any) || workbenchIntent.generationMode,
+        selectedProposal: workbenchIntent.selectedProposal || inspirationProposal,
+        aspectRatio: workbenchAspectRatio,
+        artStyle: workbenchArtStyle,
+      };
+    }
+
+    if (!savedUserPrompt && !inspirationProposal && !(savedUploadedAssets && savedUploadedAssets.length > 0)) {
+      return null;
+    }
+
+    return createCreationIntent({
+      inputMode: savedUploadedAssets && savedUploadedAssets.length > 0 ? 'assets' : 'article',
+      publishGoal: 'refine_handoff',
+      prompt: savedUserPrompt || '',
+      uploadedAssets: (savedUploadedAssets as any) || [],
+      generationMode: (savedGenerationMode as any) || 'ai_generated',
+      selectedProposal: inspirationProposal,
+      proposals: inspirationProposal ? [inspirationProposal] : [],
+      aspectRatio: workbenchAspectRatio,
+      artStyle: workbenchArtStyle,
+    });
+  }, [
+    inspirationProposal,
+    savedGenerationMode,
+    savedUploadedAssets,
+    savedUserPrompt,
+    workbenchArtStyle,
+    workbenchAspectRatio,
+    workbenchIntent,
+  ]);
+
+  const buildStoryboardSaveContext = useCallback(() => {
+    const intent = getWorkbenchIntentForSave();
+    if (!intent) {
+      return {
+        userPrompt: savedUserPrompt,
+        uploadedAssets: savedUploadedAssets,
+        generationMode: savedGenerationMode,
+        aspectRatio: workbenchAspectRatio,
+        artStyle: workbenchArtStyle,
+      };
+    }
+
+    return {
+      ...buildCreationSettings(intent),
+      userPrompt: intent.prompt,
+      uploadedAssets: intent.uploadedAssets,
+      generationMode: intent.generationMode,
+      assetTheme: intent.assetTheme,
+      selectedProposal: intent.selectedProposal,
+      proposalAlternatives: intent.proposalAlternatives,
+      publishGoal: intent.publishGoal,
+      inputMode: intent.inputMode,
+      aspectRatio: intent.aspectRatio,
+      artStyle: intent.artStyle,
+      flowVersion: intent.flowVersion,
+      creationIntent: intent,
+    };
+  }, [
+    getWorkbenchIntentForSave,
+    savedGenerationMode,
+    savedUploadedAssets,
+    savedUserPrompt,
+    workbenchArtStyle,
+    workbenchAspectRatio,
+  ]);
 
   // ============================================================
   // 处理侧边栏拖动调整宽度
@@ -1219,7 +1318,7 @@ export const VisualStoryboardPage = () => {
             isAiGenerated: apiScene.type !== 'mixed_media',
             visualPrompt: apiScene.visual_description || '',
             motionPrompt: apiScene.camera_movement || '',
-            generationStatus: 'idle' as const,
+            generationStatus: apiScene.reference_asset_path ? 'image_selected' as const : 'idle' as const,
             footageStatus: apiScene.reference_asset_path ? 'filled' : 'empty',
             assetUrl: apiScene.reference_asset_path || undefined,
             // 摄影参数（来自后端 expandProposalToScript 透传的字段）
@@ -1249,9 +1348,7 @@ export const VisualStoryboardPage = () => {
           const saveResult = await saveStoryboard(projectId, {
             scenes: normalizedScenes,
             title: result.data.title || inspirationProposal.title,
-            userPrompt: savedUserPrompt,
-            uploadedAssets: savedUploadedAssets,
-            generationMode: savedGenerationMode
+            ...buildStoryboardSaveContext(),
           });
 
           if (saveResult.success) {
@@ -1331,9 +1428,7 @@ export const VisualStoryboardPage = () => {
         const saveResult = await saveStoryboard(projectId, {
           scenes: normalizedScenes,
           title: projectTitle,
-          userPrompt: savedUserPrompt,
-          uploadedAssets: savedUploadedAssets,
-          generationMode: savedGenerationMode
+          ...buildStoryboardSaveContext(),
         });
         
         if (saveResult.success) {
@@ -1360,7 +1455,7 @@ export const VisualStoryboardPage = () => {
       // 1. 有 projectId
       // 2. 没有通过 scriptData 传入新生成的数据
       // 3. 当前没有正在加载
-      if (!projectId || (scriptData && shouldGenerate) || isLoadingProject) {
+      if (!projectId || (scriptData && shouldGenerate) || (intentFromRoute && shouldGenerate) || isLoadingProject) {
         return;
       }
 
@@ -1418,6 +1513,18 @@ export const VisualStoryboardPage = () => {
           }
           if (project.uploadedAssets) setSavedUploadedAssets(project.uploadedAssets);
           if (project.generationMode) setSavedGenerationMode(project.generationMode);
+          const recoveredIntent = mergeCreationIntentFromProject(project);
+          if (recoveredIntent) {
+            setWorkbenchIntent(recoveredIntent);
+            setSavedUserPrompt(recoveredIntent.prompt);
+            setSavedUploadedAssets(recoveredIntent.uploadedAssets);
+            setSavedGenerationMode(recoveredIntent.generationMode);
+            setWorkbenchAspectRatio(recoveredIntent.aspectRatio);
+            setWorkbenchArtStyle(recoveredIntent.artStyle);
+          } else if (project.settings) {
+            if (project.settings.aspectRatio) setWorkbenchAspectRatio(project.settings.aspectRatio);
+            if (project.settings.artStyle) setWorkbenchArtStyle(project.settings.artStyle);
+          }
           
           // 加载分镜数据
           if (project.storyboardData && Array.isArray(project.storyboardData) && project.storyboardData.length > 0) {
@@ -1503,7 +1610,7 @@ export const VisualStoryboardPage = () => {
     };
 
     loadProjectFromDatabase();
-  }, [projectId, scriptData, shouldGenerate, customScenesFromScript]); // 依赖这些参数
+  }, [projectId, scriptData, shouldGenerate, customScenesFromScript, intentFromRoute]); // 依赖这些参数
 
   // ============================================================
   // 自动保存场景更改（防抖）
@@ -1522,9 +1629,7 @@ export const VisualStoryboardPage = () => {
         const saveResult = await saveStoryboard(projectId, {
           scenes: normalizedScenes,
           title: projectTitle,
-          userPrompt: savedUserPrompt,
-          uploadedAssets: savedUploadedAssets,
-          generationMode: savedGenerationMode
+          ...buildStoryboardSaveContext(),
         });
         if (saveResult.success) {
           console.log('[VisualStoryboardPage] ✅ 自动保存成功');
@@ -1555,14 +1660,12 @@ export const VisualStoryboardPage = () => {
         const data = JSON.stringify({
           scenes: normalizedScenes,
           title: projectTitle,
-          userPrompt: savedUserPrompt,
-          uploadedAssets: savedUploadedAssets,
-          generationMode: savedGenerationMode
+          ...buildStoryboardSaveContext(),
         });
         
         const blob = new Blob([data], { type: 'application/json' });
         const sent = navigator.sendBeacon(
-          `http://localhost:3000/api/v1/project/${projectId}/storyboard`,
+          `http://localhost:4300/api/v1/project/${projectId}/storyboard`,
           blob
         );
         
@@ -1571,7 +1674,7 @@ export const VisualStoryboardPage = () => {
         } else {
           console.warn('[VisualStoryboardPage] ⚠️ sendBeacon 发送失败，尝试同步保存');
           // 降级到同步保存
-          fetch(`http://localhost:3000/api/v1/project/${projectId}/storyboard`, {
+          fetch(`http://localhost:4300/api/v1/project/${projectId}/storyboard`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: data,
@@ -1590,7 +1693,7 @@ export const VisualStoryboardPage = () => {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [projectId, scenes, projectTitle, savedUserPrompt, savedUploadedAssets, savedGenerationMode]);
+  }, [projectId, scenes, projectTitle, buildStoryboardSaveContext]);
 
   // ============================================================
   // 自动触发脚本生成（当从首页跳转且isGenerating为true时）
@@ -1609,6 +1712,15 @@ export const VisualStoryboardPage = () => {
       // 清除导航标记（一次性使用）
       sessionStorage.removeItem('storyboard_navigation_flag');
       console.log('[VisualStoryboardPage] ✅ 检测到正常导航，清除导航标记');
+
+      if (shouldSkipLegacyAutoScriptGeneration({
+        hasInspirationProposal: Boolean(inspirationProposal),
+        needExpandScript: Boolean(locationState?.needExpandScript),
+        shouldGenerate: Boolean(shouldGenerate),
+      })) {
+        console.log('[VisualStoryboardPage] 跳过旧脚本生成：当前入口由方案展开流程生成镜头卡');
+        return;
+      }
       
       // 只在以下条件下自动生成：
       // 1. shouldGenerate 为 true（明确标记需要生成）
@@ -1638,15 +1750,15 @@ export const VisualStoryboardPage = () => {
           user_prompt: userPrompt,
           uploaded_assets: uploadedAssets || [],
           generation_mode: generationMode as any,
-          art_style: artStyleFromScript || undefined,
-          aspect_ratio: aspectRatioFromScript || undefined,
+          art_style: workbenchArtStyle || undefined,
+          aspect_ratio: workbenchAspectRatio || undefined,
         }, (status) => {
            setScriptTaskStatus(status);
         });
 
         console.log('[VisualStoryboardPage] ✅ 脚本生成成功:', result);
         console.log('[VisualStoryboardPage] 📊 后端返回的场景数据（前3个）:', result.scenes.slice(0, 3));
-        const newScenes = result.scenes.map((apiScene, index) => convertApiSceneToScene(apiScene, index, aspectRatioFromScript));
+        const newScenes = result.scenes.map((apiScene, index) => convertApiSceneToScene(apiScene, index, workbenchAspectRatio));
         console.log('[VisualStoryboardPage] 📊 转换后的场景数据（前3个）:', newScenes.slice(0, 3));
         setScenes(newScenes);
         setProjectTitle(result.title);
@@ -1666,9 +1778,7 @@ export const VisualStoryboardPage = () => {
             const saveResult = await saveStoryboard(projectId, {
               scenes: normalizedScenes,
               title: result.title,
-              userPrompt: userPrompt,
-              uploadedAssets: uploadedAssets,
-              generationMode: generationMode
+              ...buildStoryboardSaveContext(),
             });
             if (saveResult.success) {
               console.log('[VisualStoryboardPage] ✅ 场景数据已保存到数据库');
@@ -1692,7 +1802,7 @@ export const VisualStoryboardPage = () => {
     };
 
     autoGenerateScript();
-  }, [shouldGenerate, userPrompt, scriptData, scenes.length, isGeneratingScript, uploadedAssets, generationMode, isLoadingProject]);
+  }, [shouldGenerate, userPrompt, scriptData, scenes.length, isGeneratingScript, uploadedAssets, generationMode, isLoadingProject, inspirationProposal, locationState?.needExpandScript]);
 
   // ============================================================
   // 辅助函数
@@ -1736,9 +1846,7 @@ export const VisualStoryboardPage = () => {
         const saveResult = await saveStoryboard(projectId, {
           scenes: normalizedScenes,
           title: projectTitle,
-          userPrompt: savedUserPrompt,
-          uploadedAssets: savedUploadedAssets,
-          generationMode: savedGenerationMode
+          ...buildStoryboardSaveContext(),
         });
         if (saveResult.success) {
           console.log('[VisualStoryboardPage] ✅ 场景添加已保存到数据库');
@@ -1770,9 +1878,7 @@ export const VisualStoryboardPage = () => {
           const saveResult = await saveStoryboard(projectId, {
             scenes: normalizedScenes,
             title: projectTitle,
-            userPrompt: savedUserPrompt,
-            uploadedAssets: savedUploadedAssets,
-            generationMode: savedGenerationMode
+            ...buildStoryboardSaveContext(),
           });
           if (saveResult.success) {
             console.log('[VisualStoryboardPage] ✅ 场景删除已保存到数据库');
@@ -1811,9 +1917,7 @@ export const VisualStoryboardPage = () => {
         const saveResult = await saveStoryboard(projectId, {
           scenes: normalizedScenes,
           title: projectTitle,
-          userPrompt: savedUserPrompt,
-          uploadedAssets: savedUploadedAssets,
-          generationMode: savedGenerationMode
+          ...buildStoryboardSaveContext(),
         });
         if (saveResult.success) {
           console.log('[VisualStoryboardPage] ✅ 场景复制已保存到数据库');
@@ -1907,7 +2011,7 @@ export const VisualStoryboardPage = () => {
     const input = aiDirectorInput.trim();
     // #region agent log
     console.log('[AI-Director][H-B/H-D] send triggered', {input, isLoading:isAiDirectorLoading, scenesCount:scenes.length});
-    fetch('http://localhost:3000/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'send-triggered',data:{input,isLoading:isAiDirectorLoading,scenesCount:scenes.length}})}).catch(()=>{});
+    fetch('http://localhost:4300/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'send-triggered',data:{input,isLoading:isAiDirectorLoading,scenesCount:scenes.length}})}).catch(()=>{});
     // #endregion
     if (!input || isAiDirectorLoading) return;
 
@@ -1944,7 +2048,7 @@ export const VisualStoryboardPage = () => {
 
       // #region agent log
       console.log('[AI-Director][H-A/H-E] API response', {success:result.success, error:result.error, action:result.data?.action, changesCount:result.data?.changes?.length, aiMessage:result.data?.message});
-      fetch('http://localhost:3000/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'api-response',data:{success:result.success,error:result.error,action:result.data?.action,changesCount:result.data?.changes?.length}})}).catch(()=>{});
+      fetch('http://localhost:4300/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'api-response',data:{success:result.success,error:result.error,action:result.data?.action,changesCount:result.data?.changes?.length}})}).catch(()=>{});
       // #endregion
 
       if (result.error === 'cancelled') return;
@@ -1963,7 +2067,7 @@ export const VisualStoryboardPage = () => {
       if (err?.name === 'AbortError' || err?.name === 'CanceledError') return;
       // #region agent log
       console.log('[AI-Director][H-A] error caught', {errName:err?.name, errMsg:err?.message});
-      fetch('http://localhost:3000/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'error-caught',data:{errName:err?.name,errMsg:err?.message}})}).catch(()=>{});
+      fetch('http://localhost:4300/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'error-caught',data:{errName:err?.name,errMsg:err?.message}})}).catch(()=>{});
       // #endregion
       console.error('[AI Director] 对话失败:', err);
       setAiDirectorMessages(prev => [...prev, { role: 'assistant', content: '抱歉，遇到了一些问题，请重试。' }]);
@@ -2070,14 +2174,14 @@ export const VisualStoryboardPage = () => {
         user_prompt: savedUserPrompt,
         uploaded_assets: savedUploadedAssets || [],
         generation_mode: savedGenerationMode as any,
-        art_style: artStyleFromScript || undefined,
-        aspect_ratio: aspectRatioFromScript || undefined,
+        art_style: workbenchArtStyle || undefined,
+        aspect_ratio: workbenchAspectRatio || undefined,
       }, (status) => {
          setScriptTaskStatus(status);
       });
 
       console.log('[VisualStoryboardPage] ✅ 分镜重新生成成功:', result);
-      const newScenes = result.scenes.map((apiScene, index) => convertApiSceneToScene(apiScene, index, aspectRatioFromScript));
+      const newScenes = result.scenes.map((apiScene, index) => convertApiSceneToScene(apiScene, index, workbenchAspectRatio));
       setScenes(newScenes);
       setProjectTitle(result.title);
       setSelectedSceneId(newScenes[0]?.id || null);
@@ -2104,7 +2208,7 @@ export const VisualStoryboardPage = () => {
     // 筛选出需要生成图片的AI场景（类型为ai且还没有图片且有提示词）
     const aiScenes = scenes.filter(scene => 
       scene.type === 'ai' && 
-      (scene.generationStatus === 'idle' || !scene.assetUrl) &&
+      !scene.assetUrl &&
       (scene.visualPrompt?.trim() || scene.script?.trim())
     );
     
@@ -2135,7 +2239,7 @@ export const VisualStoryboardPage = () => {
     // 只处理有提示词的AI场景，跳过没有填写提示词的场景
     const aiScenes = scenes.filter(scene => 
       scene.type === 'ai' && 
-      (scene.generationStatus === 'idle' || !scene.assetUrl) &&
+      !scene.assetUrl &&
       (scene.visualPrompt?.trim() || scene.script?.trim())
     );
     
@@ -2145,27 +2249,23 @@ export const VisualStoryboardPage = () => {
     
     let completedCount = 0;
     
-    // 为每个场景创建生成任务
-    const generateTasks = aiScenes.map(async (scene, index) => {
+    // 单个场景的生成函数（不立即执行，仅定义）
+    const makeGenerateTask = (scene: typeof aiScenes[0], index: number) => async () => {
       try {
-        // 更新状态为生成中
         updateScene(scene.id, { generationStatus: 'generating_image' });
         
         console.log(`[批量生成] 🎨 开始生成场景 ${scene.id} 的图片 (${index + 1}/${aiScenes.length})...`);
         
-        const originalPrompt = scene.visualPrompt?.trim() || scene.script?.trim() || '';
-        // 融合摄影参数（景别/视角/焦距/设备/运镜）
+        // 优先使用用户在卡片里直接编辑的 Description（script）
+        const originalPrompt = scene.script?.trim() || scene.visualPrompt?.trim() || '';
         const cinematicPrompt = buildCinematicPrompt(scene, originalPrompt);
-        // 添加艺术风格提示词
-        const promptText = addStyleToPrompt(cinematicPrompt, artStyleFromScript);
+        const promptText = addStyleToPrompt(cinematicPrompt, workbenchArtStyle);
         console.log(`[批量生成] 🎨 场景 ${scene.id} 完整提示词:`, promptText);
         
-        // 根据选择的画幅比例获取图片尺寸
-        const aspectRatio = (aspectRatioFromScript || '16:9') as '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '3:2' | '2:3' | '21:9';
+        const aspectRatio = (workbenchAspectRatio || '16:9') as '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '3:2' | '2:3' | '21:9';
         const imageSize = getRecommendedSize(aspectRatio, '2K');
         console.log(`[批量生成] 📐 场景 ${scene.id} 使用画幅比例: ${aspectRatio}, 尺寸: ${imageSize}`);
         
-        // 每个分镜生成1张图片
         const result = await imageGenApi.textToImage(promptText, {
           size: imageSize,
           watermark: true,
@@ -2174,14 +2274,12 @@ export const VisualStoryboardPage = () => {
         
         console.log(`[批量生成] ✅ 场景 ${scene.id} 图片生成成功`);
         
-        // 自动选择第一张图片
         const firstImageUrl = result.imageUrls[0];
         updateScene(scene.id, { 
           assetUrl: firstImageUrl,
           generationStatus: 'image_selected' 
         });
         
-        // 更新进度
         completedCount++;
         setBatchGenerationProgress({ 
           current: completedCount, 
@@ -2194,7 +2292,6 @@ export const VisualStoryboardPage = () => {
         console.error(`[批量生成] ❌ 场景 ${scene.id} 图片生成失败:`, error);
         updateScene(scene.id, { generationStatus: 'idle' });
         
-        // 更新进度
         completedCount++;
         setBatchGenerationProgress({ 
           current: completedCount, 
@@ -2204,16 +2301,22 @@ export const VisualStoryboardPage = () => {
         
         return { success: false, sceneId: scene.id, error };
       }
-    });
+    };
     
-    // 并发执行所有任务，最多同时3个请求
-    const CONCURRENCY = 3;
+    // 真正的并发限制：每批最多同时发出 2 个请求，批次间间隔 1 秒
+    const CONCURRENCY = 2;
     const results = [];
+    const taskFns = aiScenes.map((scene, index) => makeGenerateTask(scene, index));
     
-    for (let i = 0; i < generateTasks.length; i += CONCURRENCY) {
-      const batch = generateTasks.slice(i, i + CONCURRENCY);
-      const batchResults = await Promise.allSettled(batch);
+    for (let i = 0; i < taskFns.length; i += CONCURRENCY) {
+      const batch = taskFns.slice(i, i + CONCURRENCY);
+      // 在这里才真正启动这批任务，保证并发数不超过 CONCURRENCY
+      const batchResults = await Promise.allSettled(batch.map(fn => fn()));
       results.push(...batchResults);
+      // 批次间等待 1 秒，避免触发 ARK API 限速
+      if (i + CONCURRENCY < taskFns.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
     
     // 统计结果
@@ -2234,6 +2337,22 @@ export const VisualStoryboardPage = () => {
     });
     setShowBatchResultModal(true);
   };
+
+  useEffect(() => {
+    if (workbenchIntent?.publishGoal !== 'fast_publish') return;
+    if (isQuickAutomationPaused || quickAutomationStartedRef.current) return;
+    if (isGeneratingScript || isBatchGeneratingImages || scenes.length === 0) return;
+
+    const hasPendingImages = scenes.some(scene =>
+      scene.type === 'ai' &&
+      !scene.assetUrl &&
+      (scene.visualPrompt?.trim() || scene.script?.trim())
+    );
+    if (!hasPendingImages) return;
+
+    quickAutomationStartedRef.current = true;
+    executeBatchGenerateImages();
+  }, [isBatchGeneratingImages, isGeneratingScript, isQuickAutomationPaused, scenes, workbenchIntent?.publishGoal]);
   
   // ============================================================
   // 批量生成视频
@@ -2286,14 +2405,14 @@ export const VisualStoryboardPage = () => {
         
         const originalPrompt = scene.motionPrompt || scene.visualPrompt || scene.script || '';
         // 添加艺术风格提示词
-        const promptText = addStyleToPrompt(originalPrompt, artStyleFromScript);
+        const promptText = addStyleToPrompt(originalPrompt, workbenchArtStyle);
         console.log(`[批量生成] 🎬 场景 ${scene.id} 添加风格后的提示词:`, promptText);
         
         const duration = parseInt(scene.duration) || 5;
         const frames = duration === 5 ? 121 : 241;
         
         // 根据选择的画幅比例设置视频比例
-        const aspectRatio = (aspectRatioFromScript || '16:9') as '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9';
+        const aspectRatio = (workbenchAspectRatio || '16:9') as '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9';
         console.log(`[批量生成] 📐 场景 ${scene.id} 使用视频画幅比例: ${aspectRatio}`);
         
         // 使用即梦3.0 Pro模式生成视频（默认模型）
@@ -2407,7 +2526,7 @@ export const VisualStoryboardPage = () => {
 
   const handleDownloadExport = () => {
     if (exportResult) {
-      const downloadUrl = `http://localhost:3000${exportResult.videoUrl}`;
+      const downloadUrl = `http://localhost:4300${exportResult.videoUrl}`;
       videoExportApi.downloadFile(downloadUrl, exportResult.filename);
     }
   };
@@ -2429,12 +2548,110 @@ export const VisualStoryboardPage = () => {
   // 对比模式状态
   const [isCompareMode, setIsCompareMode] = useState(false);
 
+  const hasGeneratedVisuals = scenes.some(scene => scene.assetUrl || scene.videoUrl);
+  const hasGeneratedVideos = scenes.some(scene => scene.videoUrl);
+  const bottomCtaLabel = !hasGeneratedVisuals
+    ? '先生成分镜画面'
+    : hasGeneratedVideos
+      ? '进入配乐与粗剪'
+      : '生成配乐';
+  const proposalAlternatives = workbenchIntent?.proposalAlternatives || [];
+  const selectedProposalTitle = workbenchIntent?.selectedProposal?.title || inspirationProposal?.title || '';
+
+  const applyWorkbenchAspectRatio = (nextRatio: CreationAspectRatio) => {
+    const shouldRegenerate = hasGeneratedVisuals && window.confirm('已生成的画面不会自动改变画幅。是否清除已生成画面，并按新画幅重新生成？\n\n取消则只应用到后续生成。');
+    setWorkbenchAspectRatio(nextRatio);
+    setScenes(prev => prev.map(scene => ({
+      ...scene,
+      imageResolution: getImageResolutionByAspectRatio(nextRatio),
+      ...(shouldRegenerate ? {
+        assetUrl: undefined,
+        videoUrl: undefined,
+        generationStatus: 'idle' as const,
+        footageStatus: 'empty' as const,
+      } : {}),
+    })));
+    setWorkbenchIntent(prev => prev ? { ...prev, aspectRatio: nextRatio } : prev);
+  };
+
+  const applyWorkbenchArtStyle = (nextStyle: string) => {
+    const shouldRegenerate = hasGeneratedVisuals && window.confirm('已生成的画面不会自动改变风格。是否清除已生成画面，并按新风格重新生成？\n\n取消则只应用到后续生成。');
+    setWorkbenchArtStyle(nextStyle);
+    setScenes(prev => prev.map(scene => shouldRegenerate
+      ? { ...scene, assetUrl: undefined, videoUrl: undefined, generationStatus: 'idle', footageStatus: 'empty' }
+      : scene
+    ));
+    setWorkbenchIntent(prev => prev ? { ...prev, artStyle: nextStyle } : prev);
+  };
+
+  const handleProposalSwitch = (title: string) => {
+    const nextProposal = proposalAlternatives.find(proposal => proposal.title === title);
+    if (!nextProposal) return;
+
+    const shouldRegenerate = scenes.length === 0 || window.confirm('切换方案会改变项目方向。是否用新方案重新生成镜头草稿？\n\n取消则保留当前镜头，只更新项目方向。');
+    setWorkbenchIntent(prev => prev ? { ...prev, selectedProposal: nextProposal, artStyle: prev.artStyle || nextProposal.visualStyle } : createCreationIntent({
+      inputMode: savedUploadedAssets && savedUploadedAssets.length > 0 ? 'assets' : 'article',
+      publishGoal: 'refine_handoff',
+      prompt: savedUserPrompt || '',
+      uploadedAssets: (savedUploadedAssets as any) || [],
+      generationMode: (savedGenerationMode as any) || 'ai_generated',
+      proposals: proposalAlternatives,
+      selectedProposal: nextProposal,
+      aspectRatio: workbenchAspectRatio,
+      artStyle: workbenchArtStyle,
+    }));
+
+    if (shouldRegenerate) {
+      const proposalScenes = nextProposal.roughScript.scenes.map((scene: any, index: number): Scene => {
+        const assetPath = scene.assetPath || scene.reference_asset_path;
+
+        return {
+          id: index + 1,
+          type: scene.type === 'mixed_media' ? 'real' : 'ai',
+          duration: `${scene.duration || 5}s`,
+          script: scene.description || scene.script || '',
+          narration: scene.script || scene.narration || '',
+          isAiGenerated: scene.type !== 'mixed_media',
+          visualPrompt: scene.visual || scene.description || '',
+          motionPrompt: scene.cameraMovement || scene.camera_movement || '',
+          generationStatus: assetPath ? 'image_selected' : 'idle',
+          footageStatus: assetPath ? 'filled' : 'empty',
+          assetUrl: assetPath || undefined,
+          imageResolution: getImageResolutionByAspectRatio(workbenchAspectRatio),
+          postProcessing: {},
+          transitionType: 'none',
+          designReason: nextProposal.reasoning,
+          creativeNotes: [`风格: ${nextProposal.visualStyle}`, `配乐: ${nextProposal.bgmStyle}`],
+        };
+      });
+      setScenes(proposalScenes);
+      setProjectTitle(nextProposal.title);
+      setSelectedSceneId(proposalScenes[0]?.id || null);
+    }
+  };
+
+  const handleAdvancedScriptEdit = () => {
+    navigate('/script-editor', {
+      state: {
+        proposal: workbenchIntent?.selectedProposal || inspirationProposal,
+        uploadedAssets: savedUploadedAssets || [],
+        userPrompt: savedUserPrompt || '',
+        generationMode: savedGenerationMode || 'ai_generated',
+        savedScenes: scenes,
+        projectId,
+        aspectRatio: workbenchAspectRatio,
+        artStyle: workbenchArtStyle,
+      },
+    });
+  };
+
   // ── 可编辑单元格（内联组件）────────────────────────────────────
-  const EditableCell = ({ value, onChange, isDescription, placeholder = 'Empty' }: {
+  const EditableCell = ({ value, onChange, isDescription, placeholder = 'Empty', maxHeight }: {
     value: string;
     onChange?: (v: string) => void;
     isDescription?: boolean;
     placeholder?: string;
+    maxHeight?: number;
   }) => {
     const [text, setText] = React.useState(value);
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -2444,9 +2661,13 @@ export const VisualStoryboardPage = () => {
     React.useEffect(() => {
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
-        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        const nextHeight = maxHeight
+          ? Math.min(textareaRef.current.scrollHeight, maxHeight)
+          : textareaRef.current.scrollHeight;
+        textareaRef.current.style.height = `${nextHeight}px`;
+        textareaRef.current.style.overflowY = maxHeight && textareaRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
       }
-    }, [text]);
+    }, [text, maxHeight]);
 
     const handleBlur = () => { onChange?.(text); };
 
@@ -2460,7 +2681,7 @@ export const VisualStoryboardPage = () => {
           onBlur={handleBlur}
           rows={1}
           placeholder={placeholder}
-          style={{ display: 'block', overflow: 'hidden', minHeight: isDescription ? '48px' : '15px' }}
+          style={{ display: 'block', minHeight: isDescription ? '48px' : '15px' }}
         />
       </div>
     );
@@ -2490,26 +2711,20 @@ export const VisualStoryboardPage = () => {
 
   // ── 单个分镜卡片自动填充（AI生成图片）─────────────────────────
   const handleAutoFill = async (scene: Scene) => {
-    // Video Mode 且已有图片 → 直接生成视频
-    if (storyboardMode === 'video' && scene.assetUrl) {
-      await generateVideoForScene(scene);
+    // 始终根据当前字段重新生成图片（与 storyboardMode 无关）
+    // 优先使用用户在卡片里直接编辑的 Description（script），
+    // 保证修改后的描述能反映到生成结果中
+    const rawPrompt = scene.script?.trim() || scene.visualPrompt?.trim();
+    if (!rawPrompt) {
+      alert('请先填写该分镜的画面内容，再点击生成画面。');
       return;
     }
-    // Video Mode 但无图片 → 需要先在 Image Mode 生成图片
-    if (storyboardMode === 'video' && !scene.assetUrl) {
-      alert('请先切换到 Image Mode 为该分镜生成图片，再回到 Video Mode 生成视频。');
-      return;
-    }
-    // Image Mode → 生成图片（原逻辑）
-    if (!scene.visualPrompt && !scene.script) return;
     updateScene(scene.id, { generationStatus: 'generating_image' });
     try {
-      const prompt = scene.visualPrompt || scene.script;
-      // 融合摄影参数
-      const cinematicPrompt = buildCinematicPrompt(scene, prompt);
-      const styledPrompt = artStyleFromScript ? addStyleToPrompt(cinematicPrompt, artStyleFromScript) : cinematicPrompt;
-      const enhancedPrompt = enhancePromptWithAspectRatio(styledPrompt, aspectRatioFromScript);
-      const aspectRatio = (aspectRatioFromScript || '16:9') as '16:9' | '9:16' | '1:1' | '4:3';
+      const cinematicPrompt = buildCinematicPrompt(scene, rawPrompt);
+      const styledPrompt = workbenchArtStyle ? addStyleToPrompt(cinematicPrompt, workbenchArtStyle) : cinematicPrompt;
+      const enhancedPrompt = enhancePromptWithAspectRatio(styledPrompt, workbenchAspectRatio);
+      const aspectRatio = (workbenchAspectRatio || '16:9') as '16:9' | '9:16' | '1:1' | '4:3';
       const sizeStr = getRecommendedSize(aspectRatio, '2K');
       const result = await imageGenApi.textToImage(enhancedPrompt, { size: sizeStr as any });
       if (result.imageUrls && result.imageUrls.length > 0) {
@@ -2519,10 +2734,13 @@ export const VisualStoryboardPage = () => {
           footageStatus: 'filled',
         });
       } else {
-        updateScene(scene.id, { generationStatus: 'idle' });
+        updateScene(scene.id, { generationStatus: scene.assetUrl ? 'image_selected' : 'idle' });
+        alert('图片生成失败：未返回图片，请重试。');
       }
-    } catch {
-      updateScene(scene.id, { generationStatus: 'idle' });
+    } catch (err: any) {
+      console.error('[Auto-fill] 图片生成失败:', err);
+      updateScene(scene.id, { generationStatus: scene.assetUrl ? 'image_selected' : 'idle' });
+      alert(`图片生成失败：${err?.message || '请检查网络或稍后重试'}`);
     }
   };
 
@@ -2532,10 +2750,10 @@ export const VisualStoryboardPage = () => {
     updateScene(scene.id, { generationStatus: 'generating_video' });
     try {
       const originalPrompt = scene.motionPrompt || scene.visualPrompt || scene.script || '';
-      const promptText = artStyleFromScript ? addStyleToPrompt(originalPrompt, artStyleFromScript) : originalPrompt;
+      const promptText = workbenchArtStyle ? addStyleToPrompt(originalPrompt, workbenchArtStyle) : originalPrompt;
       const duration = parseInt(scene.duration) || 5;
       const frames = duration === 5 ? 121 : 241;
-      const aspectRatio = (aspectRatioFromScript || '16:9') as '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9';
+      const aspectRatio = (workbenchAspectRatio || '16:9') as '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9';
       const result = await imageApi.imageToVideo(scene.assetUrl, promptText, {
         frames,
         model: 'jimeng-pro',
@@ -2557,91 +2775,150 @@ export const VisualStoryboardPage = () => {
   // 渲染（新版 UI）
   // ============================================================
   return (
-    <div className="flex flex-col h-full w-full bg-neutral-50 dark:bg-[#050505] text-neutral-900 dark:text-neutral-200 overflow-hidden font-sans">
-      {/* ── 精简操作工具栏 ─────────────────────────────────────── */}
-      <div className="h-10 border-b border-neutral-200 dark:border-white/10 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md flex items-center justify-between px-4 flex-shrink-0 z-20">
-        {/* Left: Project Title */}
-        <div className="flex items-center gap-2">
-          <LayoutTemplate size={13} className="text-cyan-500" />
-          <span className="text-neutral-900 dark:text-white font-medium truncate max-w-[200px] text-[11px] font-mono uppercase tracking-widest">{projectTitle}</span>
+    <div className="nm-flow-page nm-storyboard-page flex flex-col h-full w-full min-w-0 bg-neutral-50 dark:bg-[#050505] text-neutral-900 dark:text-neutral-200 overflow-hidden font-sans">
+      {/* ── 分镜工具条 ─────────────────────────────────────────── */}
+      <div className="nm-workbench-toolbar border-b border-neutral-200 dark:border-white/10 bg-white/70 dark:bg-[#0a0a0a]/70 backdrop-blur-md flex flex-col gap-2 px-3 py-2 flex-shrink-0 z-20 lg:h-11 lg:flex-row lg:items-center lg:justify-between lg:px-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {proposalAlternatives.length > 0 && (
+            <select
+              value={selectedProposalTitle}
+              onChange={e => handleProposalSwitch(e.target.value)}
+              className="max-w-[210px] rounded-md border border-neutral-200 bg-white/70 px-2 py-1 text-[11px] text-neutral-700 outline-none dark:border-white/10 dark:bg-black/30 dark:text-neutral-300"
+              title="切换视频方案"
+            >
+              {proposalAlternatives.map((proposal, index) => (
+                <option key={`${proposal.title}-${index}`} value={proposal.title}>
+                  {proposal.isRecommended ? '推荐 · ' : ''}{proposal.title}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
-        {/* Right: Action buttons */}
-        <div className="flex items-center gap-1">
-          <button onClick={handleRegenerate} disabled={isGeneratingScript}
-            className="flex items-center gap-1 px-2.5 py-1 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 text-[11px] font-medium transition-colors rounded-md disabled:opacity-50 font-mono">
-            {isGeneratingScript ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-            {isGeneratingScript ? '生成中...' : '重新生成'}
-          </button>
-
+        <div className="flex w-full items-center gap-1 sm:w-auto sm:justify-end">
           <button onClick={handleBatchGenerateImages} disabled={isBatchGeneratingImages || isBatchGeneratingVideos || scenes.length === 0}
-            className="flex items-center gap-1 px-2.5 py-1 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 text-[11px] font-medium transition-colors rounded-md disabled:opacity-50 font-mono">
-            {isBatchGeneratingImages ? <><Loader2 size={12} className="animate-spin" />{batchGenerationProgress.current}/{batchGenerationProgress.total}</> : <><ImagePlus size={12} />批量图片</>}
-          </button>
-
-          <button onClick={handleBatchGenerateVideos} disabled={isBatchGeneratingVideos || isBatchGeneratingImages || scenes.length === 0}
-            className="flex items-center gap-1 px-2.5 py-1 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 text-[11px] font-medium transition-colors rounded-md disabled:opacity-50 font-mono">
-            {isBatchGeneratingVideos ? <><Loader2 size={12} className="animate-spin" />{batchGenerationProgress.current}/{batchGenerationProgress.total}</> : <><Video size={12} />批量视频</>}
+            className="flex items-center gap-1.5 rounded-md border border-cyan-500/30 bg-cyan-500/15 px-3 py-1.5 text-[11px] font-medium text-cyan-700 transition-colors hover:bg-cyan-500/20 disabled:opacity-50 dark:text-cyan-300">
+            {isBatchGeneratingImages ? <><Loader2 size={12} className="animate-spin" />{batchGenerationProgress.current}/{batchGenerationProgress.total}</> : <><ImagePlus size={12} />生成图片</>}
           </button>
 
           <button onClick={handleExport} disabled={isExporting}
-            className="flex items-center gap-1 px-2.5 py-1 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 text-[11px] font-medium transition-colors rounded-md font-mono">
+            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/70 px-3 py-1.5 text-[11px] font-medium text-neutral-600 transition-colors hover:text-neutral-900 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:text-white">
             {isExporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-            {isExporting ? '处理中...' : '导出粗剪'}
+            {isExporting ? '处理中' : '导出'}
           </button>
 
-          <button onClick={() => setShowVoiceoverDialog(true)} disabled={scenes.length === 0}
-            className="flex items-center gap-1 px-2.5 py-1 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 text-[11px] font-medium transition-colors rounded-md disabled:opacity-50 font-mono">
-            <Mic size={12} />配音
-          </button>
+          <details className="group relative">
+            <summary className="flex cursor-pointer list-none items-center gap-1 rounded-md border border-neutral-200 bg-white/70 px-2 py-1.5 text-[11px] font-medium text-neutral-500 transition-colors hover:text-neutral-900 dark:border-white/10 dark:bg-white/5 dark:text-neutral-400 dark:hover:text-white">
+              <MoreHorizontal size={14} />
+              更多
+            </summary>
+            <div className="absolute right-0 top-full mt-2 w-40 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-xl dark:border-white/10 dark:bg-[#111114]">
+              <button onClick={handleAdvancedScriptEdit}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-white/5">
+                <FileVideo size={13} />
+                高级脚本
+              </button>
+              <button onClick={handleRegenerate} disabled={isGeneratingScript}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-neutral-600 hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-300 dark:hover:bg-white/5">
+                {isGeneratingScript ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                {isGeneratingScript ? '生成中' : '重生成分镜'}
+              </button>
+              <button onClick={handleBatchGenerateVideos} disabled={isBatchGeneratingVideos || isBatchGeneratingImages || scenes.length === 0}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-neutral-600 hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-300 dark:hover:bg-white/5">
+                {isBatchGeneratingVideos ? <Loader2 size={13} className="animate-spin" /> : <Video size={13} />}
+                批量生成视频
+              </button>
+            </div>
+          </details>
         </div>
       </div>
 
       {/* ── 新版主内容区域 ───────────────────────────────────────── */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="nm-storyboard-workbench flex-1 flex min-w-0 overflow-hidden relative">
+        <div className="nm-storyboard-day-blueprint" aria-hidden="true">
+          <span className="nm-storyboard-day-kicker">STORYBOARD</span>
+          <span className="nm-storyboard-day-count">{String(Math.max(scenes.length, 1)).padStart(2, '0')}</span>
+          <span className="nm-storyboard-day-note">SHOT LIST / VISUAL DRAFT</span>
+        </div>
 
         {/* 主分镜板区域 */}
-        <div className="flex-1 relative flex flex-col h-full overflow-hidden">
+        <div className="flex-1 relative flex min-w-0 flex-col h-full overflow-hidden">
 
           {/* 顶部标题栏 */}
-          <div className="flex items-center justify-between px-8 py-5 shrink-0">
-            <div className="flex items-center gap-5">
-              <h2 className="text-2xl font-medium text-neutral-900 dark:text-white tracking-wide uppercase flex items-center gap-3">
+          <div className="nm-page-heading flex flex-col gap-4 px-4 py-5 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+            <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-5">
+              <h2 className="text-2xl font-medium text-neutral-900 dark:text-white flex items-center gap-3">
                 <div className="w-1.5 h-6 bg-cyan-500 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
-                STORYBOARD
+                分镜
               </h2>
-              <div className="flex items-center gap-2 text-neutral-400 font-mono text-sm uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full border border-white/10">
+              <div className="nm-metadata-pill flex items-center gap-2 text-neutral-400 text-sm bg-white/5 px-3 py-1 rounded-full border border-white/10">
                 <Lightbulb size={14} className="text-amber-400" />
-                <span>{scenes.length} SHOTS</span>
+                <span>{scenes.length} 个分镜</span>
               </div>
             </div>
 
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setIsAdvancedMode(prev => !prev)}
+                aria-pressed={isAdvancedMode}
+                className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  isAdvancedMode
+                    ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-600 dark:text-cyan-300'
+                    : 'border-neutral-200 bg-white/60 text-neutral-500 hover:text-neutral-800 dark:border-white/10 dark:bg-black/40 dark:text-neutral-400 dark:hover:text-neutral-200'
+                }`}
+                title="显示每个分镜的镜头参数"
+              >
+                <SlidersHorizontal size={15} />
+                高级模式
+              </button>
+
             {/* Image / Video Mode Toggle */}
-            <div className="flex items-center bg-white/60 dark:bg-black/40 backdrop-blur-md border border-neutral-200 dark:border-white/10 rounded-lg p-1 shadow-sm dark:shadow-none">
+            <div className="nm-mode-toggle flex w-full items-center bg-white/60 dark:bg-black/40 backdrop-blur-md border border-neutral-200 dark:border-white/10 rounded-lg p-1 shadow-sm dark:shadow-none sm:w-auto">
               <button
                 onClick={() => setStoryboardMode('image')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all sm:flex-none sm:px-4 ${
                   storyboardMode === 'image'
                     ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 shadow-[inset_0_0_10px_rgba(34,211,238,0.2)] border border-cyan-500/30'
                     : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 border border-transparent'
                 }`}
               >
                 <ImageIcon size={15} className={storyboardMode === 'image' ? 'text-cyan-500 dark:text-cyan-400' : ''} />
-                Image Mode
+                图片
               </button>
               <button
                 onClick={() => setStoryboardMode('video')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all sm:flex-none sm:px-4 ${
                   storyboardMode === 'video'
                     ? 'bg-violet-500/20 text-violet-600 dark:text-violet-400 shadow-[inset_0_0_10px_rgba(139,92,246,0.2)] border border-violet-500/30'
                     : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 border border-transparent'
                 }`}
               >
                 <Film size={15} className={storyboardMode === 'video' ? 'text-violet-500 dark:text-violet-400' : ''} />
-                Video Mode
+                视频
               </button>
             </div>
+            </div>
           </div>
+
+          {workbenchIntent?.publishGoal === 'fast_publish' && (
+            <div className="mx-4 mb-3 flex flex-col gap-3 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-800 dark:text-cyan-200 sm:mx-8 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="font-medium">
+                  {isQuickAutomationPaused ? '快速成片已暂停，可先编辑镜头卡片' : '快速成片模式：正在自动准备镜头画面'}
+                </div>
+                <div className="mt-0.5 text-xs text-cyan-700/80 dark:text-cyan-300/80">
+                  推荐方案、默认画幅和风格已套用；你可以随时暂停，修改脚本、画面描述、素材引用和时长。
+                </div>
+              </div>
+              <button
+                onClick={() => setIsQuickAutomationPaused(prev => !prev)}
+                className="shrink-0 rounded-lg border border-cyan-500/30 bg-white/60 px-3 py-1.5 text-xs font-medium text-cyan-700 transition-colors hover:bg-white dark:bg-black/30 dark:text-cyan-200 dark:hover:bg-black/50"
+              >
+                {isQuickAutomationPaused ? '继续自动生成' : '暂停，先编辑'}
+              </button>
+            </div>
+          )}
 
           {/* 加载遮罩 */}
           {isGeneratingScript && (
@@ -2673,13 +2950,31 @@ export const VisualStoryboardPage = () => {
 
           {/* 分镜卡片网格 */}
           {!isGeneratingScript && !generateError && (
-            <div className="flex-1 overflow-y-auto px-8 pb-32 pt-2" id="storyboard-scroll-container">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 items-stretch">
+            <div className="nm-storyboard-scroll-panel flex-1 overflow-y-auto overflow-x-hidden px-4 pb-32 pt-2 sm:px-6 lg:px-8" id="storyboard-scroll-container">
+              <div className="nm-storyboard-grid grid min-w-0 grid-cols-1 items-start gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {scenes.map((scene, index) => {
-                  const displayUrl = scene.assetUrl || scene.videoUrl;
+                  const displayUrl = scene.assetUrl ? resolveLocalAssetUrl(scene.assetUrl) : scene.videoUrl;
                   const isGenerating = scene.generationStatus === 'generating_image' || scene.generationStatus === 'generating_video';
                   const hasVideo = !!scene.videoUrl;
                   const isSelected = selectedSceneId === scene.id;
+                  const isAdvancedOpen = shouldShowAdvancedSceneParameters(isAdvancedMode);
+                  const linkedAssetIndex = (savedUploadedAssets || []).findIndex((asset: any) => {
+                    const value = asset.file_path || asset.url || '';
+                    return value && value === scene.assetUrl;
+                  });
+                  const linkedAsset = linkedAssetIndex >= 0 ? (savedUploadedAssets || [])[linkedAssetIndex] : null;
+                  const sourceLabel = linkedAsset
+                    ? `素材 ${linkedAssetIndex + 1} · 进入分镜`
+                    : scene.assetUrl
+                      ? 'AI补充画面'
+                      : '待生成画面';
+                  const sourceTone = linkedAsset
+                    ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                    : scene.assetUrl
+                      ? 'border-violet-400/30 bg-violet-500/10 text-violet-700 dark:text-violet-300'
+                      : 'border-neutral-300 bg-neutral-500/10 text-neutral-500 dark:border-white/10 dark:text-neutral-400';
+                  const readableSummary = getStoryboardPreviewText(scene);
+                  const narrationText = cleanStoryboardText(scene.narration || scene.dialogue || '');
 
                   return (
                     <div
@@ -2689,11 +2984,11 @@ export const VisualStoryboardPage = () => {
                       onDragOver={handleShotDragOver}
                       onDrop={(e) => handleShotDrop(e, index)}
                       onClick={() => setSelectedSceneId(scene.id)}
-                      className={`bg-white/40 dark:bg-black/40 backdrop-blur-sm border ${
+                      className={`nm-storyboard-card bg-white/40 dark:bg-black/40 backdrop-blur-sm border ${
                         isSelected
-                          ? 'border-cyan-500 shadow-[0_0_20px_rgba(34,211,238,0.15)]'
+                          ? 'nm-storyboard-card-selected border-cyan-500 shadow-[0_0_20px_rgba(34,211,238,0.15)]'
                           : 'border-neutral-200 dark:border-white/10'
-                      } rounded-xl overflow-hidden flex flex-col group relative transition-all duration-300 hover:border-neutral-300 dark:hover:border-white/20 hover:bg-white/60 dark:hover:bg-black/60 h-full cursor-pointer`}
+                      } rounded-xl overflow-hidden flex flex-col group relative transition-all duration-300 hover:border-neutral-300 dark:hover:border-white/20 hover:bg-white/60 dark:hover:bg-black/60 cursor-pointer`}
                     >
                       {/* Drag Handle */}
                       <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-white/60 dark:bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-neutral-200 dark:border-white/10 flex items-center gap-2">
@@ -2701,7 +2996,7 @@ export const VisualStoryboardPage = () => {
                       </div>
 
                       {/* 图片/视频区域 */}
-                      <div className="relative aspect-video bg-neutral-100 dark:bg-neutral-900 border-b border-neutral-200 dark:border-white/10 shrink-0 overflow-hidden">
+                      <div className="nm-storyboard-media relative aspect-video bg-neutral-100 dark:bg-neutral-900 border-b border-neutral-200 dark:border-white/10 shrink-0 overflow-hidden">
                         {isGenerating ? (
                           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                             <Loader2 size={24} className="animate-spin text-cyan-500" />
@@ -2713,8 +3008,8 @@ export const VisualStoryboardPage = () => {
                           <>
                             {scene.assetUrl && (
                               <img
-                                src={scene.assetUrl}
-                                alt={`Shot ${index + 1}`}
+                                src={resolveLocalAssetUrl(scene.assetUrl)}
+                                alt={`分镜 ${index + 1}`}
                                 className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                               />
                             )}
@@ -2753,9 +3048,13 @@ export const VisualStoryboardPage = () => {
                           </div>
                         )}
 
-                        {/* SHOT X 标签 */}
+                        {/* 分镜序号标签 */}
                         <div className="absolute top-2 left-2 bg-white/60 dark:bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[10px] font-mono text-neutral-900 dark:text-white border border-neutral-200 dark:border-white/10 z-10">
-                          SHOT {index + 1}
+                          分镜 {index + 1}
+                        </div>
+
+                        <div className={`absolute bottom-2 left-2 z-10 max-w-[72%] truncate rounded-md border px-2 py-1 text-[10px] font-medium backdrop-blur-md ${sourceTone}`}>
+                          {sourceLabel}
                         </div>
 
                         {/* 视频模式：时长标签 */}
@@ -2784,71 +3083,161 @@ export const VisualStoryboardPage = () => {
                       </div>
 
                       {/* 内容区域 */}
-                      <div className="p-3 flex-1 flex flex-col gap-3">
-                        {/* Description */}
-                        <div>
-                          <div className="text-[8px] font-mono text-cyan-500/80 uppercase tracking-widest mb-1">Description</div>
-                          <EditableCell
-                            value={scene.script || ''}
-                            onChange={(v) => updateScene(scene.id, { script: v })}
-                            isDescription
-                          />
+                      <div className="nm-storyboard-card-content p-3 flex-1 flex flex-col gap-3">
+                        <div className="rounded-lg border border-neutral-200 bg-white/60 p-2.5 dark:border-white/10 dark:bg-white/[0.04]">
+                          <div className="mb-1.5 flex items-center justify-between gap-2">
+                            <div className="text-[10px] font-semibold tracking-[0.08em] text-cyan-600 dark:text-cyan-300">镜头重点</div>
+                          </div>
+                          <p className="text-[12px] leading-relaxed text-neutral-800 dark:text-neutral-100" style={clampTextStyle(3)}>
+                            {readableSummary}
+                          </p>
                         </div>
 
-                        {/* 根据 mode 显示不同字段 */}
-                        <div className="grid grid-cols-2 gap-x-2 gap-y-2">
-                          {storyboardMode === 'image' ? (
-                            <>
-                              <div>
-                                <div className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest mb-1">Size</div>
-                                <EditableCell value={scene.size || ''} onChange={(v) => updateScene(scene.id, { size: v })} placeholder="Shot size" />
-                              </div>
-                              <div>
-                                <div className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest mb-1">Perspective</div>
-                                <EditableCell value={scene.perspective || ''} onChange={(v) => updateScene(scene.id, { perspective: v })} placeholder="Perspective" />
-                              </div>
-                              <div>
-                                <div className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest mb-1">Equipment</div>
-                                <EditableCell value={scene.equipment || ''} onChange={(v) => updateScene(scene.id, { equipment: v })} placeholder="Equipment" />
-                              </div>
-                              <div>
-                                <div className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest mb-1">Focal Length</div>
-                                <EditableCell value={scene.focalLength || ''} onChange={(v) => updateScene(scene.id, { focalLength: v })} placeholder="e.g. 35mm" />
-                              </div>
-                              <div>
-                                <div className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest mb-1">Aspect Ratio</div>
-                                <EditableCell value={scene.imageResolution?.aspectRatio || aspectRatioFromScript || '16:9'} placeholder="16:9" />
-                              </div>
-                              <div>
-                                <div className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest mb-1">Notes</div>
-                                <EditableCell value={scene.notes || ''} onChange={(v) => updateScene(scene.id, { notes: v })} placeholder="Notes" />
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div>
-                                <div className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest mb-1">Movement</div>
-                                <EditableCell value={scene.motionPrompt || ''} onChange={(v) => updateScene(scene.id, { motionPrompt: v })} placeholder="Camera move" />
-                              </div>
-                              <div>
-                                <div className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest mb-1">Equipment</div>
-                                <EditableCell value={scene.equipment || ''} onChange={(v) => updateScene(scene.id, { equipment: v })} placeholder="Equipment" />
-                              </div>
-                              <div>
-                                <div className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest mb-1">ERT</div>
-                                <EditableCell value={`${scene.duration || '5'}s`} placeholder="Duration" />
-                              </div>
-                              <div className="col-span-2">
-                                <div className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest mb-1">Dialogue</div>
-                                <EditableCell value={scene.dialogue || scene.narration || ''} onChange={(v) => updateScene(scene.id, { dialogue: v })} placeholder="Dialogue / narration" />
-                              </div>
-                            </>
-                          )}
+                        <div className="rounded-lg border border-neutral-200 bg-neutral-50/80 p-2 dark:border-white/5 dark:bg-white/[0.03]">
+                          <div className="mb-1 text-[10px] font-medium text-neutral-500">旁白 / 字幕</div>
+                          <p className="text-[11px] leading-relaxed text-neutral-700 dark:text-neutral-300" style={clampTextStyle(2)}>
+                            {narrationText || '这一镜暂未设置旁白'}
+                          </p>
                         </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <div className="text-[10px] font-medium text-neutral-500 mb-1">时长</div>
+                            <EditableCell
+                              value={String(scene.duration || '5s')}
+                              onChange={(v) => updateScene(scene.id, { duration: v })}
+                              placeholder="5s"
+                            />
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-medium text-neutral-500 mb-1">素材引用</div>
+                            <select
+                              value={(savedUploadedAssets || []).some((asset: any) => (asset.file_path || asset.url) === scene.assetUrl) ? scene.assetUrl || '' : ''}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                updateScene(scene.id, {
+                                  assetUrl: value || undefined,
+                                  footageStatus: value ? 'filled' : 'empty',
+                                  type: value ? 'real' : scene.type,
+                                });
+                              }}
+                              className="w-full rounded-md border border-neutral-200 bg-neutral-100 px-1.5 py-1 text-[10px] text-neutral-700 outline-none dark:border-white/5 dark:bg-white/5 dark:text-neutral-300"
+                            >
+                              <option value="">不指定</option>
+                              {(savedUploadedAssets || []).map((asset: any, assetIndex: number) => {
+                                const value = asset.file_path || asset.url || '';
+                                return (
+                                  <option key={`${value}-${assetIndex}`} value={value}>
+                                    素材 {assetIndex + 1} · {getUploadedAssetName(asset, assetIndex)}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                        </div>
+
+                        <details
+                          className="group rounded-lg border border-neutral-200 bg-white/40 dark:border-white/10 dark:bg-black/20"
+                        >
+                          <summary className="flex cursor-pointer list-none items-center justify-between px-2.5 py-2 text-[11px] font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100">
+                            <span>编辑完整内容</span>
+                            <ChevronRight size={13} className="transition-transform group-open:rotate-90" />
+                          </summary>
+                          <div className="space-y-2 border-t border-neutral-200/80 p-2.5 dark:border-white/10">
+                            <div>
+                              <div className="mb-1 text-[10px] font-medium text-cyan-500/80">完整画面内容</div>
+                              <EditableCell
+                                value={scene.script || ''}
+                                onChange={(v) => updateScene(scene.id, { script: v })}
+                                isDescription
+                                maxHeight={120}
+                                placeholder="描述这一镜要出现的画面"
+                              />
+                            </div>
+                            <div>
+                              <div className="mb-1 text-[10px] font-medium text-neutral-500">完整生成提示词</div>
+                              <EditableCell
+                                value={scene.visualPrompt || ''}
+                                onChange={(v) => updateScene(scene.id, { visualPrompt: v })}
+                                isDescription
+                                maxHeight={150}
+                                placeholder="给 AI 生成画面的具体描述"
+                              />
+                            </div>
+                            <div>
+                              <div className="mb-1 text-[10px] font-medium text-neutral-500">旁白 / 字幕文案</div>
+                              <EditableCell
+                                value={scene.narration || scene.dialogue || ''}
+                                onChange={(v) => updateScene(scene.id, { narration: v, dialogue: v })}
+                                placeholder="这一镜要说什么"
+                              />
+                            </div>
+                          </div>
+                        </details>
+
+                        {isAdvancedOpen && (
+                          <>
+                            {storyboardMode === 'image' ? (
+                              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5">
+                              <div className="grid grid-cols-1 gap-2 border-t border-neutral-200/80 p-3 dark:border-white/10 sm:grid-cols-2">
+                                <div>
+                                  <div className="mb-1 text-[10px] font-medium text-neutral-500">景别</div>
+                                  <EditableCell value={scene.size || ''} onChange={(v) => updateScene(scene.id, { size: v })} placeholder="如：近景 / 全景" />
+                                </div>
+                                <div>
+                                  <div className="mb-1 text-[10px] font-medium text-neutral-500">视角</div>
+                                  <EditableCell value={scene.perspective || ''} onChange={(v) => updateScene(scene.id, { perspective: v })} placeholder="如：平视 / 俯拍" />
+                                </div>
+                                <div>
+                                  <div className="mb-1 text-[10px] font-medium text-neutral-500">设备</div>
+                                  <EditableCell value={scene.equipment || ''} onChange={(v) => updateScene(scene.id, { equipment: v })} placeholder="如：手持 / 三脚架" />
+                                </div>
+                                <div>
+                                  <div className="mb-1 text-[10px] font-medium text-neutral-500">焦距</div>
+                                  <EditableCell value={scene.focalLength || ''} onChange={(v) => updateScene(scene.id, { focalLength: v })} placeholder="如：35mm" />
+                                </div>
+                                <div>
+                                  <div className="mb-1 text-[10px] font-medium text-neutral-500">画幅</div>
+                                  <EditableCell
+                                    value={scene.imageResolution?.aspectRatio || workbenchAspectRatio || '16:9'}
+                                    onChange={(v) => updateScene(scene.id, { imageResolution: { ...scene.imageResolution, aspectRatio: v as any } })}
+                                    placeholder="16:9"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="mb-1 text-[10px] font-medium text-neutral-500">备注</div>
+                                  <EditableCell value={scene.notes || ''} onChange={(v) => updateScene(scene.id, { notes: v })} placeholder="补充说明" />
+                                </div>
+                              </div>
+                              </div>
+                            ) : (
+                              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5">
+                              <div className="grid grid-cols-1 gap-x-2 gap-y-2 border-t border-neutral-200/80 p-3 dark:border-white/10 sm:grid-cols-2">
+                                <div>
+                                  <div className="text-[10px] font-medium text-neutral-500 mb-1">运动</div>
+                                  <EditableCell value={scene.motionPrompt || ''} onChange={(v) => updateScene(scene.id, { motionPrompt: v })} placeholder="镜头运动" />
+                                </div>
+                                <div>
+                                  <div className="text-[10px] font-medium text-neutral-500 mb-1">设备</div>
+                                  <EditableCell value={scene.equipment || ''} onChange={(v) => updateScene(scene.id, { equipment: v })} placeholder="拍摄设备" />
+                                </div>
+                                <div>
+                                  <div className="text-[10px] font-medium text-neutral-500 mb-1">时长</div>
+                                  <EditableCell value={`${scene.duration || '5'}s`} placeholder="时长" />
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <div className="text-[10px] font-medium text-neutral-500 mb-1">对白/旁白</div>
+                                  <EditableCell value={scene.dialogue || scene.narration || ''} onChange={(v) => updateScene(scene.id, { dialogue: v })} placeholder="对白或旁白" />
+                                </div>
+                              </div>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
 
                       {/* 底部操作栏 */}
-                      <div className="p-1.5 border-t border-neutral-200 dark:border-white/5 bg-white/40 dark:bg-black/40 flex items-center justify-between shrink-0">
+                      <div className="nm-storyboard-card-footer p-1.5 border-t border-neutral-200 dark:border-white/5 bg-white/40 dark:bg-black/40 flex items-center justify-between shrink-0">
                         <div className="flex items-center gap-1">
                           <button
                             onClick={(e) => { e.stopPropagation(); duplicateScene(scene.id); }}
@@ -2868,10 +3257,11 @@ export const VisualStoryboardPage = () => {
                         <button
                           onClick={(e) => { e.stopPropagation(); handleAutoFill(scene); }}
                           disabled={isGenerating}
-                          className="p-1.5 text-neutral-500 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-500/10 rounded transition-colors flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider disabled:opacity-40"
+                          className="flex items-center gap-1.5 rounded-md border border-cyan-500/30 bg-cyan-500/15 px-2.5 py-1.5 text-[10px] font-medium text-cyan-700 shadow-[0_0_12px_rgba(34,211,238,0.12)] transition-colors hover:bg-cyan-500/25 hover:text-cyan-800 disabled:opacity-40 dark:text-cyan-300 dark:hover:text-cyan-100"
+                          title="用当前描述生成或替换这一镜画面"
                         >
                           {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                          Auto-fill
+                          生成画面
                         </button>
                       </div>
                     </div>
@@ -2881,41 +3271,41 @@ export const VisualStoryboardPage = () => {
                 {/* Add Shot 按钮 */}
                 <button
                   onClick={addScene}
-                  className="min-h-[250px] border-2 border-dashed border-neutral-300 dark:border-white/10 rounded-xl flex flex-col items-center justify-center gap-3 text-neutral-500 hover:text-cyan-600 dark:hover:text-cyan-400 hover:border-cyan-400/50 hover:bg-cyan-500/5 transition-all group bg-white/20 dark:bg-black/20 backdrop-blur-sm"
+                  className="nm-storyboard-add-card min-h-[250px] border-2 border-dashed border-neutral-300 dark:border-white/10 rounded-xl flex flex-col items-center justify-center gap-3 text-neutral-500 hover:text-cyan-600 dark:hover:text-cyan-400 hover:border-cyan-400/50 hover:bg-cyan-500/5 transition-all group bg-white/20 dark:bg-black/20 backdrop-blur-sm"
                 >
                   <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform group-hover:bg-cyan-500/20 group-hover:shadow-[0_0_15px_rgba(34,211,238,0.4)]">
                     <Plus size={20} />
                   </div>
-                  <span className="text-xs font-medium tracking-wide">ADD SHOT</span>
+                  <span className="text-xs font-medium">添加分镜</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* 底部 Generate Soundtrack 按钮 */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white dark:from-[#050505] via-white/80 dark:via-[#050505]/80 to-transparent flex justify-center pointer-events-none z-20">
+          {/* 底部上下文操作按钮 */}
+          <div className="nm-day-action-bar absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white dark:from-[#050505] via-white/80 dark:via-[#050505]/80 to-transparent flex justify-center pointer-events-none z-20">
             <motion.button
               whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(34,211,238,0.6)' }}
               whileTap={{ scale: 0.98 }}
-              onClick={handleMusicCreation}
-              disabled={scenes.length === 0}
-              className="pointer-events-auto flex items-center gap-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-12 py-4 rounded-full font-medium transition-all shadow-[0_0_20px_rgba(34,211,238,0.4)] border border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={!hasGeneratedVisuals ? handleBatchGenerateImages : handleMusicCreation}
+              disabled={scenes.length === 0 || isBatchGeneratingImages || isBatchGeneratingVideos}
+              className="pointer-events-auto flex max-w-[calc(100vw-2rem)] items-center justify-center gap-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-6 py-4 rounded-full font-medium transition-all shadow-[0_0_20px_rgba(34,211,238,0.4)] border border-white/20 disabled:opacity-50 disabled:cursor-not-allowed sm:px-12"
             >
-              <span className="tracking-widest uppercase text-sm">Generate Soundtrack</span>
-              <Music size={18} />
+              <span className="text-sm">{bottomCtaLabel}</span>
+              {!hasGeneratedVisuals ? <ImagePlus size={18} /> : hasGeneratedVideos ? <ArrowRight size={18} /> : <Music size={18} />}
             </motion.button>
           </div>
         </div>
 
         {/* ── AI Director 侧边栏开关 ────────────────────────────── */}
         <motion.div
-          animate={{ right: isAiSidebarOpen ? 320 : 0 }}
           transition={{ type: 'spring', bounce: 0, duration: 0.5 }}
-          className="absolute top-1/2 -translate-y-1/2 z-30"
+          className="fixed right-0 top-1/2 z-50 -translate-y-1/2 xl:absolute"
         >
           <button
-            onClick={() => { setIsAiSidebarOpen(!isAiSidebarOpen); fetch('http://localhost:3000/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'sidebar-toggle',data:{opening:!isAiSidebarOpen}})}).catch(()=>{}); }}
-            className="h-24 w-8 flex items-center justify-center group relative -ml-8 bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-neutral-200 dark:border-white/10 border-r-0 rounded-l-2xl shadow-[-8px_0_20px_rgba(0,0,0,0.1)] dark:shadow-[-8px_0_20px_rgba(0,0,0,0.5)] hover:bg-white/80 dark:hover:bg-black/80 transition-colors"
+            onClick={() => { setIsAiSidebarOpen(!isAiSidebarOpen); fetch('http://localhost:4300/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'sidebar-toggle',data:{opening:!isAiSidebarOpen}})}).catch(()=>{}); }}
+            aria-label={isAiSidebarOpen ? '收起 AI 分镜助手' : '打开 AI 分镜助手'}
+            className="nm-day-edge-tab h-20 w-9 flex items-center justify-center group relative bg-white/80 dark:bg-black/70 backdrop-blur-xl border border-neutral-200 dark:border-white/10 border-r-0 rounded-l-2xl shadow-[-8px_0_20px_rgba(0,0,0,0.1)] dark:shadow-[-8px_0_20px_rgba(0,0,0,0.5)] hover:bg-white dark:hover:bg-black/90 transition-colors"
           >
             <div className="absolute inset-0 bg-cyan-500/10 blur-md opacity-0 group-hover:opacity-100 transition-opacity rounded-l-2xl" />
             {isAiSidebarOpen ? (
@@ -2926,12 +3316,20 @@ export const VisualStoryboardPage = () => {
           </button>
         </motion.div>
 
+        {isAiSidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/45 backdrop-blur-sm xl:hidden"
+            onClick={() => setIsAiSidebarOpen(false)}
+          />
+        )}
+
         {/* ── AI Director 侧边栏（StoryboardDirectorPanel）── */}
         <motion.div
           initial={false}
-          animate={{ width: isAiSidebarOpen ? 320 : 0, opacity: isAiSidebarOpen ? 1 : 0 }}
+          animate={{ x: isAiSidebarOpen ? 0 : '100%', opacity: isAiSidebarOpen ? 1 : 0 }}
           transition={{ type: 'spring', bounce: 0, duration: 0.5 }}
-          className="flex flex-col shrink-0 overflow-hidden z-20 absolute right-0 top-0 bottom-0 shadow-[-20px_0_50px_rgba(0,0,0,0.4)]"
+          style={{ pointerEvents: isAiSidebarOpen ? 'auto' : 'none' }}
+          className="fixed right-0 top-0 bottom-0 z-40 flex w-full flex-col overflow-hidden shadow-[-20px_0_50px_rgba(0,0,0,0.4)] sm:w-[360px] xl:w-[320px]"
         >
           <StoryboardDirectorPanel
             scenes={scenes}
@@ -2941,7 +3339,7 @@ export const VisualStoryboardPage = () => {
             onScenesChange={handleDirectorScenesChange}
             onRegenerateShot={handleDirectorRegenerateShot}
             onRegenerateAll={handleDirectorRegenerateAll}
-            className="w-[320px] h-full"
+            className="nm-day-sidebar w-full h-full"
           />
         </motion.div>
       </div>
@@ -2969,13 +3367,6 @@ export const VisualStoryboardPage = () => {
         failCount={batchModalConfig.failCount}
       />
 
-      {showVoiceoverDialog && (
-        <VoiceoverGenerationDialog
-          scenes={scenes}
-          onClose={() => setShowVoiceoverDialog(false)}
-          onSuccess={handleVoiceoverSuccess}
-        />
-      )}
 
       {/* 视频播放弹窗 */}
       {videoModalUrl && (

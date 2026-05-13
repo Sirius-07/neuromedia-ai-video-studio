@@ -3,7 +3,7 @@
  * 用于测试情绪识别和方案生成API
  */
 
-const API_BASE = 'http://localhost:3000';
+const API_BASE = 'http://localhost:4300';
 
 // 测试数据
 const testCases = [

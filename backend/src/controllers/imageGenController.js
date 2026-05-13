@@ -1,12 +1,65 @@
 /**
  * 图片生成控制器 - 火山方舟 Seedream API
  * 处理文生图和图生图请求
+ * 使用 Node.js 原生 https 模块（避免 axios 与 ARK API 的兼容性问题）
  */
 
-import axios from 'axios';
+import https from 'https';
+import zlib from 'zlib';
 import dotenv from 'dotenv';
 
 dotenv.config();
+
+/**
+ * 调用火山方舟图片生成 API（原生 https，支持 gzip 解压）
+ */
+function callArkAPI(apiKey, requestBody) {
+  return new Promise((resolve, reject) => {
+    const bodyStr = JSON.stringify(requestBody);
+    const options = {
+      hostname: 'ark.cn-beijing.volces.com',
+      path: '/api/v3/images/generations',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(bodyStr),
+      },
+      timeout: 180000,
+    };
+
+    const req = https.request(options, (res) => {
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => {
+        const rawBuffer = Buffer.concat(chunks);
+        const decompress = (buf) => {
+          const enc = res.headers['content-encoding'];
+          if (enc === 'gzip') return new Promise((r, e) => zlib.gunzip(buf, (err, d) => err ? e(err) : r(d)));
+          if (enc === 'deflate') return new Promise((r, e) => zlib.inflate(buf, (err, d) => err ? e(err) : r(d)));
+          if (enc === 'br') return new Promise((r, e) => zlib.brotliDecompress(buf, (err, d) => err ? e(err) : r(d)));
+          return Promise.resolve(buf);
+        };
+        decompress(rawBuffer).then(buf => {
+          const text = buf.toString('utf8');
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            try { resolve(JSON.parse(text)); } catch { resolve(text); }
+          } else {
+            const err = new Error(`ARK API returned ${res.statusCode}`);
+            err.status = res.statusCode;
+            try { err.data = JSON.parse(text); } catch { err.data = text; }
+            reject(err);
+          }
+        }).catch(reject);
+      });
+    });
+
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
+    req.on('error', reject);
+    req.write(bodyStr);
+    req.end();
+  });
+}
 
 /**
  * 生成图片（文生图或图生图）
@@ -24,9 +77,9 @@ export const generateImage = async (req, res) => {
     }
 
     const {
-      model = 'doubao-seedream-4-5-251128', // 改用4.5模型（更稳定）
+      model = 'doubao-seedream-4-5-251128',
       prompt,
-      image, // 单个URL或URL数组（图生图）
+      image,
       size = '2K',
       seed,
       sequential_image_generation = 'disabled',
@@ -42,18 +95,12 @@ export const generateImage = async (req, res) => {
       imageCount: Array.isArray(image) ? image.length : (image ? 1 : 0),
       size,
       sequential_image_generation,
-      sequential_image_generation_options
     });
 
-    // 验证必填参数
     if (!prompt) {
-      return res.status(400).json({
-        success: false,
-        error: '缺少必填参数: prompt'
-      });
+      return res.status(400).json({ success: false, error: '缺少必填参数: prompt' });
     }
 
-    // 构建请求体
     const requestBody = {
       model,
       prompt,
@@ -63,85 +110,45 @@ export const generateImage = async (req, res) => {
       sequential_image_generation
     };
 
-    // 如果有参考图片（图生图）
-    if (image) {
-      requestBody.image = image;
-    }
+    if (image) requestBody.image = image;
+    if (seed !== undefined && seed !== -1) requestBody.seed = seed;
 
-    // 如果指定了seed（仅部分模型支持）
-    if (seed !== undefined && seed !== -1) {
-      requestBody.seed = seed;
-    }
-
-    // 如果启用了组图功能
     if (sequential_image_generation === 'auto' && sequential_image_generation_options) {
       requestBody.sequential_image_generation_options = sequential_image_generation_options;
       console.log('✅ [后端] 组图功能已启用:', sequential_image_generation_options);
-    } else {
-      console.log('⚠️ [后端] 组图功能未启用:', {
-        sequential_image_generation,
-        has_options: !!sequential_image_generation_options
-      });
     }
 
     console.log('📤 [图片生成] 调用火山方舟API:', {
-      url: 'https://ark.cn-beijing.volces.com/api/v3/images/generations',
       model: requestBody.model,
       hasImage: !!requestBody.image,
       size: requestBody.size,
-      sequential_image_generation: requestBody.sequential_image_generation,
-      sequential_image_generation_options: requestBody.sequential_image_generation_options
     });
 
-    // 如果是文生图且启用了组图功能，连续调用多次API
     let result;
-    if (sequential_image_generation === 'auto' && sequential_image_generation_options?.max_images && !image) {
-      const maxImages = sequential_image_generation_options.max_images;
-      console.log(`🔄 [图片生成] 由于模型不支持组图，将连续调用${maxImages}次API`);
-      
-      const allImages = [];
-      let totalUsage = {
-        generated_images: 0,
-        output_tokens: 0,
-        total_tokens: 0
-      };
 
-      // 移除组图参数，每次生成1张
-      const singleRequestBody = { ...requestBody };
-      delete singleRequestBody.sequential_image_generation_options;
-      
+    if (sequential_image_generation === 'auto' && sequential_image_generation_options?.max_images && !image) {
+      // 批量生成：顺序调用多次
+      const maxImages = sequential_image_generation_options.max_images;
+      console.log(`🔄 [图片生成] 将顺序调用 ${maxImages} 次API`);
+      const allImages = [];
+      const totalUsage = { generated_images: 0, output_tokens: 0, total_tokens: 0 };
+      const singleBody = { ...requestBody };
+      delete singleBody.sequential_image_generation_options;
+
       for (let i = 0; i < maxImages; i++) {
         try {
           console.log(`   [${i + 1}/${maxImages}] 生成第${i + 1}张图片...`);
-          
-          const response = await axios.post(
-            'https://ark.cn-beijing.volces.com/api/v3/images/generations',
-            singleRequestBody,
-            {
-              headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-              },
-              timeout: 180000
-            }
-          );
-
-          const singleResult = response.data;
-          if (singleResult.data && singleResult.data.length > 0) {
+          const singleResult = await callArkAPI(apiKey, singleBody);
+          if (singleResult.data?.length > 0) {
             allImages.push(...singleResult.data);
-            totalUsage.generated_images += singleResult.usage.generated_images;
-            totalUsage.output_tokens += singleResult.usage.output_tokens;
-            totalUsage.total_tokens += singleResult.usage.total_tokens;
+            totalUsage.generated_images += singleResult.usage?.generated_images || 0;
+            totalUsage.output_tokens += singleResult.usage?.output_tokens || 0;
+            totalUsage.total_tokens += singleResult.usage?.total_tokens || 0;
             console.log(`   ✓ 第${i + 1}张图片生成成功`);
           }
-
-          // 避免请求过快，等待500ms
-          if (i < maxImages - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
+          if (i < maxImages - 1) await new Promise(r => setTimeout(r, 1000));
         } catch (error) {
           console.error(`   ✗ 第${i + 1}张图片生成失败:`, error.message);
-          // 继续生成下一张
         }
       }
 
@@ -151,71 +158,32 @@ export const generateImage = async (req, res) => {
         data: allImages,
         usage: totalUsage
       };
-
       console.log(`✅ [图片生成] 批量生成完成: ${allImages.length}/${maxImages} 张`);
     } else {
-      // 单张图片生成（原有逻辑）
-      const response = await axios.post(
-        'https://ark.cn-beijing.volces.com/api/v3/images/generations',
-        requestBody,
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 180000 // 3分钟超时
-        }
-      );
-
-      result = response.data;
+      // 单张生成
+      result = await callArkAPI(apiKey, requestBody);
     }
-    
+
     console.log('✅ [图片生成] 生成成功:', {
       model: result.model,
       imageCount: result.data?.length || 0,
-      usage: result.usage
     });
 
-    // 返回标准格式
-    res.json({
-      success: true,
-      data: result
-    });
+    res.json({ success: true, data: result });
 
   } catch (error) {
     console.error('❌ [图片生成] 生成失败:', error.message);
-    
-    if (error.response) {
-      const status = error.response.status;
-      const data = error.response.data;
-      
-      console.error('API错误响应:', {
-        status,
-        data
-      });
-      
-      if (status === 401) {
-        return res.status(401).json({
-          success: false,
-          error: 'API认证失败：请检查 ARK_API_KEY 是否正确'
-        });
-      } else if (status === 429) {
-        return res.status(429).json({
-          success: false,
-          error: 'API请求频率超限：请稍后再试'
-        });
-      } else if (status === 400) {
-        return res.status(400).json({
-          success: false,
-          error: `API请求参数错误: ${data?.error?.message || JSON.stringify(data)}`
-        });
-      }
+
+    const status = error.status;
+    const data = error.data;
+
+    if (status) {
+      console.error('API错误响应:', { status, data });
+      if (status === 401) return res.status(401).json({ success: false, error: 'API认证失败：请检查 ARK_API_KEY 是否正确' });
+      if (status === 429) return res.status(429).json({ success: false, error: 'API请求频率超限：请稍后再试' });
+      if (status === 400) return res.status(400).json({ success: false, error: `API请求参数错误: ${data?.error?.message || JSON.stringify(data)}` });
     }
-    
-    res.status(500).json({
-      success: false,
-      error: error.message || '图片生成失败'
-    });
+
+    res.status(500).json({ success: false, error: error.message || '图片生成失败' });
   }
 };
-

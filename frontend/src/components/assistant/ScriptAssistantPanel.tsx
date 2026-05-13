@@ -65,7 +65,7 @@ function EmptyState({ onSuggest }: { onSuggest: (t: string) => void }) {
         <Sparkles size={22} className="text-cyan-400" />
       </div>
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-neutral-300">AI 助手已就绪</p>
+        <p className="text-sm font-medium text-neutral-300">AI 改稿助手已就绪</p>
         <p className="text-xs text-neutral-500 leading-relaxed">
           选中某个 shot 进行精准修改，<br />或直接发起全局对话
         </p>
@@ -176,7 +176,7 @@ function ModeToggle({
       {mode === "shot" && selectedShotId ? (
         <motion.div key="shot" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }} className="flex items-center gap-1.5 text-[11px]">
           <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-cyan-400">修改 Shot {selectedShotId}</span>
+          <span className="text-cyan-400">修改分镜 {selectedShotId}</span>
           <button onClick={onClearShot} className="ml-1 text-neutral-500 hover:text-neutral-300 transition-colors">✕</button>
         </motion.div>
       ) : (
@@ -278,8 +278,8 @@ export default function ScriptAssistantPanel({
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/25 to-violet-500/15 border border-cyan-500/20 flex items-center justify-center">
             <Sparkles size={13} className="text-cyan-400" />
           </div>
-          <span className="text-[11px] font-semibold tracking-[0.15em] text-neutral-300 uppercase">
-            AI Co-Writer
+          <span className="text-[11px] font-semibold tracking-[0.15em] text-neutral-300">
+            AI 改稿助手
           </span>
         </div>
 
@@ -294,7 +294,7 @@ export default function ScriptAssistantPanel({
             }`}
           >
             {mode === "global" ? <Globe size={9} /> : <Crosshair size={9} />}
-            {mode === "global" ? "GLOBAL" : "SHOT"}
+            {mode === "global" ? "全局" : "分镜"}
           </button>
 
           {/* Undo */}
@@ -422,7 +422,7 @@ export default function ScriptAssistantPanel({
             placeholder={
               isLoading                          ? "AI 正在处理..."
               : actionStatus === "awaiting-confirm" ? "请先确认或取消上方建议"
-              : selectedShotId                   ? `修改 Shot ${selectedShotId}...`
+              : selectedShotId                   ? `修改分镜 ${selectedShotId}...`
               : "告诉 AI 你想怎么改..."
             }
             rows={1}
@@ -444,7 +444,7 @@ export default function ScriptAssistantPanel({
             {isLoading ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
           </button>
         </div>
-        <p className="text-[10px] text-neutral-700 text-center">Enter 发送 · Shift+Enter 换行</p>
+        <p className="text-[10px] text-neutral-700 text-center">回车发送 · Shift+回车换行</p>
       </div>
     </div>
   );

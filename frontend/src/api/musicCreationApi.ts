@@ -4,7 +4,7 @@
  * 处理从分镜页面到音频创作的完整流程
  */
 
-const API_BASE_URL = 'http://localhost:3000/api/v1';
+const API_BASE_URL = 'http://localhost:4300/api/v1';
 
 export interface Scene {
   videoUrl: string;

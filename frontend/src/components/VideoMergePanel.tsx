@@ -152,7 +152,7 @@ export const VideoMergePanel: React.FC<VideoMergePanelProps> = ({
 
           <div className="result-actions">
             <a
-              href={`http://localhost:3000${mergeResult.mergedVideo?.videoUrl}`}
+              href={`http://localhost:4300${mergeResult.mergedVideo?.videoUrl}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-download"
@@ -160,7 +160,7 @@ export const VideoMergePanel: React.FC<VideoMergePanelProps> = ({
               📥 下载视频
             </a>
             <a
-              href={`http://localhost:3000${mergeResult.mergedVideo?.videoUrl}`}
+              href={`http://localhost:4300${mergeResult.mergedVideo?.videoUrl}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-preview"
@@ -171,7 +171,7 @@ export const VideoMergePanel: React.FC<VideoMergePanelProps> = ({
 
           <div className="result-video-preview">
             <video
-              src={`http://localhost:3000${mergeResult.mergedVideo?.videoUrl}`}
+              src={`http://localhost:4300${mergeResult.mergedVideo?.videoUrl}`}
               controls
               className="preview-video"
             >

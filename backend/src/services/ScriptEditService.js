@@ -12,7 +12,9 @@ class ScriptEditService {
   // 火山方舟AI配置
   static API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
   static MODEL_ID = 'ep-m-20251107114928-w8j8v';
-  static ENHANCE_MODEL_ID = 'doubao-seed-1-8-251228'; // 场景润色专用：与创意方案生成同款高质量模型
+  // doubao-seed-1-6-flash-250828: 思考模型快速版，响应快且可靠
+  // doubao-seed-1-8-251228: 思考时间过长(>2min)，易导致503超时，不使用
+  static ENHANCE_MODEL_ID = 'doubao-seed-1-6-flash-250828';
 
   /**
    * 调用火山方舟AI聊天API
@@ -38,7 +40,8 @@ class ScriptEditService {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
           },
-          timeout: 60000
+          timeout: 60000,
+          proxy: false
         }
       );
 
@@ -79,6 +82,7 @@ class ScriptEditService {
 5. afterIndex=-1 表示插入最前面，afterIndex=N 表示插入到第N+1个场景后面
 6. 实拍素材场景（[实拍]标注）改描述时需保留其核心内容
 7. 严格保留用户设定的主体内容，不要擅自改变场景主题
+8. 【新闻稿场景专项规则】若场景有 sourceRef 字段（标注来自原稿某段），修改旁白(narration)时必须保留原稿事实，禁止替换人名、数字、地名、时间等核心信息；isAISupplemented:false 的场景改动需特别谨慎
 
 【输出 JSON 格式】
 {
@@ -271,25 +275,70 @@ class ScriptEditService {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
           },
-          timeout: 60000
+          timeout: 60000,
+          proxy: false  // 绕过系统代理，直连 Ark API
         }
       );
 
       const aiText = response.data?.choices?.[0]?.message?.content;
       if (!aiText) throw new Error('AI返回格式异常');
 
-      // 解析 JSON
-      try {
-        const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error('AI未返回JSON');
-        return JSON.parse(jsonMatch[0]);
-      } catch {
-        // 降级：至少返回文本消息
-        return { message: aiText, action: 'no_change', changes: [] };
-      }
+      console.log('[ScriptEditService] Raw AI output (first 300 chars):', aiText.substring(0, 300));
+
+      // 解析 JSON（兼容 markdown 代码块、<think> 标签、尾随逗号等）
+      return ScriptEditService._extractJSON(aiText);
     } catch (error) {
       console.error('AI对话失败:', error.message);
       throw new Error('AI对话失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 从AI输出文本中提取 JSON 对象
+   * 兼容：markdown 代码块、<think>...</think> 标签、尾随逗号、控制字符
+   */
+  static _extractJSON(text) {
+    let raw = text;
+
+    // 去掉 <think>...</think> 思考链（思考模型会输出）
+    raw = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+    // 去掉 markdown 代码块标记
+    raw = raw.replace(/^```json\s*/i, '').replace(/```\s*$/g, '').trim();
+    raw = raw.replace(/^```\s*/, '').replace(/```\s*$/g, '').trim();
+
+    // 提取最外层 JSON 对象 { ... }
+    const objStart = raw.indexOf('{');
+    const objEnd = raw.lastIndexOf('}');
+    if (objStart === -1 || objEnd <= objStart) {
+      return { message: raw.trim() || '操作完成', action: 'no_change', changes: [] };
+    }
+    raw = raw.slice(objStart, objEnd + 1);
+
+    // 修复尾随逗号
+    raw = raw.replace(/,(\s*[}\]])/g, '$1');
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      // 尝试修复字符串内未转义控制字符
+      try {
+        const fixed = raw.replace(/[\x00-\x1F\x7F]/g, (c) => {
+          const code = c.charCodeAt(0);
+          if (code === 0x0A) return '\\n';
+          if (code === 0x0D) return '\\r';
+          if (code === 0x09) return '\\t';
+          return '';
+        });
+        return JSON.parse(fixed);
+      } catch {
+        const messageMatch = raw.match(/"message"\s*:\s*"([^"]+)"/);
+        return {
+          message: messageMatch ? messageMatch[1] : '已处理你的请求',
+          action: 'no_change',
+          changes: []
+        };
+      }
     }
   }
 
@@ -647,7 +696,7 @@ ${scene.bgmStyle ? `BGM风格: ${scene.bgmStyle}` : ''}
       else positionDesc = '中段（递进叙事，承上启下）';
     }
 
-    const systemPrompt = `你是专业的商业视频编剧，擅长根据品牌调性和叙事结构创作高品质分镜描述。
+    const systemPrompt = `你是专业的视频编剧，同时具备新闻媒体专业素养，擅长将新闻稿和创意内容转化为高品质分镜描述。
 
 【你的任务】
 用户手工填写了一个分镜的草稿内容。你需要：
@@ -670,9 +719,10 @@ ${scene.bgmStyle ? `BGM风格: ${scene.bgmStyle}` : ''}
 1. description 必须100-150字，让人读完后脑海中能浮现完整的电影级视觉画面
 2. 根据场景叙事位置选择合适节奏：开篇抓眼球、中段递进情绪、结尾收束升华
 3. 镜头语言服务情感表达：传递紧迫/震撼用推进，表现广阔/孤独用拉远，跟随动作用摇移
-4. 旁白要与品牌调性和画面情绪高度匹配，言简意赅
+4. 旁白要与整体调性和画面情绪高度匹配，言简意赅
 5. 严格保留用户输入的核心内容和创意意图，不能改变用户想要的主体元素
-6. 与前后场景保持叙事连贯性，不能出现情节跳跃或风格突变`;
+6. 与前后场景保持叙事连贯性，不能出现情节跳跃或风格突变
+7. 【新闻场景专项规则】若草稿包含具体人名、数字、时间、地名等新闻事实，润色时必须原样保留，只优化画面描述语言，不得虚构或替换任何事实性信息`;
 
     const userMessage = `【项目信息】
 ${projectSection}
@@ -713,18 +763,17 @@ ${nextScene ? `下一个场景：${nextScene.description || '（空）'}` : '下
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
-        timeout: 60000
+        timeout: 60000,
+        proxy: false
       }
     );
 
     const aiText = response.data?.choices?.[0]?.message?.content;
     if (!aiText) throw new Error('AI返回格式异常');
 
-    // 解析AI返回的JSON
+    // 解析AI返回的JSON（使用统一的健壮解析方法）
     try {
-      const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('AI未返回JSON');
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = ScriptEditService._extractJSON(aiText);
 
       return {
         ...scene,

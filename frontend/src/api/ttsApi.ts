@@ -4,7 +4,7 @@
  * 对接后端 IndexTTS2 服务
  */
 
-const API_BASE = 'http://localhost:3000/api/tts';
+const API_BASE = 'http://localhost:4300/api/tts';
 
 export interface VoiceOption {
   id: string;

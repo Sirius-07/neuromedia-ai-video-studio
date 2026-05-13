@@ -3,7 +3,7 @@
  * 用于前端调用图像生成服务
  */
 
-const API_BASE_URL = 'http://localhost:3000/api/v1/image';
+const API_BASE_URL = 'http://localhost:4300/api/v1/image';
 
 // ==================== 类型定义 ====================
 

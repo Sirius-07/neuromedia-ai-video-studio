@@ -23,6 +23,7 @@ import ttsServiceManager from './services/ttsServiceManager.js';
 import inspirationRoutes from './routes/inspirationRoutes.js';
 import scriptEditRoutes from './routes/scriptEditRoutes.js';
 import storyboardAssistantRoutes from './routes/storyboardAssistantRoutes.js';
+import handoffExportRoutes from './routes/handoffExportRoutes.js';
 
 dotenv.config();
 
@@ -65,6 +66,7 @@ app.use('/api/tts', ttsRoutes);
 app.use('/api/inspiration', inspirationRoutes);
 app.use('/api/script-edit', scriptEditRoutes);
 app.use('/api/storyboard-assistant', storyboardAssistantRoutes);
+app.use('/api/handoff', handoffExportRoutes);
 
 // ????
 app.get('/health', (req, res) => {

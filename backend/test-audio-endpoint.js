@@ -2,7 +2,7 @@ import axios from 'axios';
 
 console.log('测试音频生成端点...\n');
 
-axios.post('http://localhost:3000/api/v1/audio/quick-generate', {
+axios.post('http://localhost:4300/api/v1/audio/quick-generate', {
   prompt: 'test sound effect',
   duration: 1
 })
