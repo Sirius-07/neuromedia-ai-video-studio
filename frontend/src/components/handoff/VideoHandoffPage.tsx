@@ -171,7 +171,12 @@ export const VideoHandoffPage: React.FC = () => {
   };
 
   return (
-    <main className="video-handoff-page">
+    <main className="video-handoff-page nm-flow-page nm-storyboard-page">
+      <div className="handoff-day-blueprint" aria-hidden="true">
+        <span className="handoff-day-blueprint__kicker">STORYBOARD</span>
+        <span className="handoff-day-blueprint__count">{String(Math.max(sample.shots.length, 1)).padStart(2, '0')}</span>
+        <span className="handoff-day-blueprint__note">SHOT LIST / HANDOFF DRAFT</span>
+      </div>
       <div className="video-handoff-page__toolbar">
         <div>
           <span>新闻视频交接</span>

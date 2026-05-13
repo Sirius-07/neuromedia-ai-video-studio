@@ -159,9 +159,7 @@ function assetRefsForScene(
 
 function productionNoteForSource(source: HandoffSource): string {
   if (source.type === 'uploaded_asset') {
-    return source.assetName
-      ? `优先保留现场素材「${source.assetName}」，后续制作可精修运动和节奏。`
-      : '优先保留现场素材，后续制作可精修运动和节奏。';
+    return '优先保留这段现场素材，后续制作可精修镜头运动、节奏和字幕衔接。';
   }
 
   if (source.type === 'ai_reference') {
@@ -208,12 +206,12 @@ function buildAssetShot(assetRef: HandoffAssetRef, index: number): HandoffShot {
     id: `shot-${index + 1}`,
     index: index + 1,
     durationSeconds: assetRef.fileType === 'video' ? 6 : 5,
-    visualIntent: `使用「${assetRef.fileName}」作为一个关键分镜，表达报道现场、人物或氛围。`,
+    visualIntent: '使用已选现场素材作为关键分镜，表达报道现场、人物或氛围。',
     captionOrVoiceover: '',
     source,
     assetRefs: [assetRef],
     productionNote: `该${fileTypeText}已被勾选，应进入分镜；后续可基于它做图生视频或视频精修。`,
-    visualPrompt: `基于现场素材「${assetRef.fileName}」延展新闻短视频画面。`,
+    visualPrompt: '基于已选现场素材延展新闻短视频画面。',
   };
 }
 

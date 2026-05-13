@@ -1,8 +1,27 @@
 .video-handoff-page {
-  min-height: 100vh;
-  background: #f6f7f9;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  background:
+    linear-gradient(90deg, rgba(8, 127, 140, 0.055) 0 1px, transparent 1px),
+    linear-gradient(180deg, rgba(34, 43, 54, 0.045) 0 1px, transparent 1px),
+    linear-gradient(135deg, #f6fbfb 0%, #fbfaf6 50%, #f2f6f8 100%);
+  background-size: 76px 76px, 76px 76px, auto;
   color: #16181d;
-  padding: 24px;
+  padding: 24px 24px 40px;
+}
+
+.video-handoff-page::-webkit-scrollbar {
+  width: 10px;
+}
+
+.video-handoff-page::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(8, 127, 140, 0.28);
+  background-clip: padding-box;
 }
 
 .video-handoff-page__toolbar {
@@ -12,6 +31,12 @@
   gap: 16px;
   max-width: 1440px;
   margin: 0 auto 16px;
+  border: 1px solid rgba(13, 158, 175, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: 0 16px 42px rgba(24, 31, 43, 0.06);
+  padding: 13px 14px;
+  backdrop-filter: blur(18px);
 }
 
 .video-handoff-page__toolbar span,
@@ -44,12 +69,13 @@
   justify-content: center;
   gap: 6px;
   min-height: 36px;
-  border: 1px solid #d8dde5;
+  border: 1px solid rgba(13, 158, 175, 0.25);
   border-radius: 8px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.86);
   color: #252a33;
   font: inherit;
   cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .video-handoff-page__actions button {
@@ -100,10 +126,14 @@
 .handoff-player,
 .handoff-agent,
 .handoff-shot-table {
-  border: 1px solid #dfe3ea;
+  border: 1px solid rgba(95, 187, 199, 0.32);
   border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 14px 38px rgba(33, 37, 44, 0.06);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(250, 253, 253, 0.93)),
+    #ffffff;
+  box-shadow:
+    0 22px 56px rgba(24, 31, 43, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .handoff-player {
@@ -126,6 +156,17 @@
   color: #15171c;
   font-weight: 750;
   letter-spacing: 0;
+}
+
+.handoff-player__header h1::after,
+.handoff-section-heading h2::after {
+  display: block;
+  width: 36px;
+  height: 3px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #0d9eaf;
+  content: "";
 }
 
 .handoff-player__header h1 {
@@ -153,7 +194,11 @@
   min-height: 340px;
   margin-top: 14px;
   border-radius: 8px;
-  background: #0b0f14;
+  border: 1px solid rgba(13, 158, 175, 0.24);
+  background:
+    linear-gradient(135deg, rgba(8, 127, 140, 0.18), transparent 46%),
+    #0b0f14;
+  box-shadow: 0 18px 38px rgba(2, 10, 16, 0.16);
 }
 
 .handoff-player__media,
@@ -243,9 +288,9 @@
   gap: 2px 7px;
   align-items: center;
   min-height: 58px;
-  border: 1px solid #dfe3ea;
+  border: 1px solid rgba(13, 158, 175, 0.18);
   border-radius: 8px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.8);
   color: #2d333d;
   text-align: left;
   padding: 9px;
@@ -259,7 +304,8 @@
 
 .handoff-player__timeline button.is-active {
   border-color: #10a6b5;
-  background: #edf9fa;
+  background: linear-gradient(135deg, #e9fbfd, #f7ffff);
+  box-shadow: inset 0 0 0 1px rgba(13, 158, 175, 0.12);
 }
 
 .handoff-agent {
@@ -267,6 +313,9 @@
   flex-direction: column;
   min-height: 100%;
   padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 251, 252, 0.94)),
+    #ffffff;
 }
 
 .handoff-agent__header {
@@ -280,8 +329,9 @@
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: #edf7f8;
+  background: linear-gradient(135deg, #e6fbfd, #f3ffff);
   color: #087f8c;
+  box-shadow: inset 0 0 0 1px rgba(13, 158, 175, 0.14);
 }
 
 .handoff-agent__header p {
@@ -299,7 +349,8 @@
 
 .handoff-agent__message {
   border-radius: 8px;
-  background: #f4f6f8;
+  border: 1px solid rgba(216, 221, 229, 0.78);
+  background: rgba(244, 246, 248, 0.82);
   color: #3d4550;
   font-size: 13px;
   line-height: 1.55;
@@ -308,7 +359,8 @@
 
 .handoff-agent__message.is-user {
   align-self: flex-end;
-  background: #e8f6f8;
+  border-color: rgba(13, 158, 175, 0.24);
+  background: linear-gradient(135deg, #e8f6f8, #f4ffff);
   color: #075d68;
 }
 
@@ -320,9 +372,9 @@
 }
 
 .handoff-agent__quick button {
-  border: 1px solid #d8dde5;
+  border: 1px solid rgba(13, 158, 175, 0.18);
   border-radius: 999px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.82);
   color: #3c4450;
   font-size: 12px;
   padding: 7px 10px;
@@ -390,7 +442,10 @@
 .handoff-shot-table {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 14px;
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 253, 253, 0.96)),
+    #ffffff;
 }
 
 .handoff-section-heading h2 {
@@ -400,15 +455,17 @@
 .handoff-section-heading span {
   color: #69717f;
   font-size: 12px;
+  line-height: 1.45;
 }
 
 .handoff-view-toggle {
   display: inline-flex;
   gap: 4px;
-  border: 1px solid #d8dde5;
+  border: 1px solid rgba(13, 158, 175, 0.2);
   border-radius: 999px;
-  background: #f4f6f8;
+  background: rgba(239, 246, 248, 0.72);
   padding: 3px;
+  box-shadow: inset 0 1px 3px rgba(24, 31, 43, 0.06);
 }
 
 .handoff-view-toggle button {
@@ -431,7 +488,7 @@
 .handoff-view-toggle button.is-active {
   background: #ffffff;
   color: #087f8c;
-  box-shadow: 0 2px 8px rgba(33, 37, 44, 0.08);
+  box-shadow: 0 4px 12px rgba(13, 158, 175, 0.14);
 }
 
 .handoff-shot-card-grid {
@@ -447,13 +504,16 @@
   min-height: 100%;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #dfe3ea;
+  border: 1px solid rgba(211, 222, 229, 0.92);
   border-radius: 8px;
-  background: #ffffff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 252, 252, 0.96)),
+    #ffffff;
   color: #1e242d;
   text-align: left;
   padding: 0;
   cursor: pointer;
+  box-shadow: 0 10px 28px rgba(24, 31, 43, 0.055);
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
@@ -465,7 +525,9 @@
 
 .handoff-shot-card.is-selected {
   border-color: #0d9eaf;
-  box-shadow: 0 0 0 1px rgba(13, 158, 175, 0.22), 0 16px 32px rgba(13, 158, 175, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(13, 158, 175, 0.26),
+    0 18px 42px rgba(13, 158, 175, 0.16);
 }
 
 .handoff-shot-card.is-pending {
@@ -477,7 +539,9 @@
   position: relative;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: #101820;
+  background:
+    linear-gradient(135deg, rgba(13, 158, 175, 0.15), rgba(13, 18, 27, 0.96)),
+    #101820;
 }
 
 .handoff-shot-card__media img {
@@ -485,6 +549,11 @@
   height: 100%;
   display: block;
   object-fit: cover;
+  transition: transform 220ms ease;
+}
+
+.handoff-shot-card:hover .handoff-shot-card__media img {
+  transform: scale(1.025);
 }
 
 .handoff-shot-card__media::after {
@@ -542,8 +611,24 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
   padding: 12px;
+}
+
+.handoff-shot-card__body div {
+  position: relative;
+  padding-left: 10px;
+}
+
+.handoff-shot-card__body div::before {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(13, 158, 175, 0.2);
+  content: "";
 }
 
 .handoff-shot-card__body span {
@@ -577,23 +662,89 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border-top: 1px solid #edf0f4;
-  background: #fbfcfd;
+  border-top: 1px solid rgba(13, 158, 175, 0.12);
+  background:
+    linear-gradient(90deg, rgba(237, 249, 250, 0.86), rgba(255, 255, 255, 0.92)),
+    #fbfcfd;
   padding: 9px 12px;
 }
 
-.handoff-shot-card__footer small {
-  min-width: 0;
+.handoff-shot-card__footer .handoff-source-pill {
+  flex: 0 0 auto;
+}
+
+.handoff-shot-card__footer .handoff-asset-thumbs {
   overflow: hidden;
-  color: #69717f;
+}
+
+.handoff-asset-thumbs {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.handoff-asset-thumbs.is-compact {
+  justify-content: flex-start;
+  margin-top: 7px;
+}
+
+.handoff-asset-thumb {
+  display: inline-flex;
+  width: 34px;
+  height: 26px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(13, 158, 175, 0.32);
+  border-radius: 6px;
+  background: #e7f8fa;
+  color: #087f8c;
+  box-shadow: 0 3px 10px rgba(13, 158, 175, 0.10);
+}
+
+.handoff-asset-thumbs.is-compact .handoff-asset-thumb {
+  width: 42px;
+  height: 28px;
+}
+
+.handoff-asset-thumb img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.handoff-asset-thumb.is-empty {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: #eef2f6;
+  color: #7c8998;
+  box-shadow: none;
+}
+
+.handoff-asset-thumb.is-more {
+  color: #087f8c;
   font-size: 11px;
+  font-weight: 800;
+}
+
+.handoff-asset-thumbs__label {
+  overflow: hidden;
+  color: #087f8c;
+  font-size: 11px;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .handoff-shot-table__scroll {
   overflow-x: auto;
-  margin-top: 10px;
+  margin-top: 12px;
+  border: 1px solid rgba(13, 158, 175, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .handoff-shot-table table {
@@ -605,14 +756,15 @@
 
 .handoff-shot-table th,
 .handoff-shot-table td {
-  border-bottom: 1px solid #e8ebf0;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
   text-align: left;
   vertical-align: top;
   padding: 12px 10px;
 }
 
 .handoff-shot-table th {
-  color: #68717e;
+  background: linear-gradient(180deg, rgba(240, 249, 250, 0.86), rgba(255, 255, 255, 0.82));
+  color: #536172;
   font-size: 12px;
   font-weight: 700;
 }
@@ -623,7 +775,7 @@
 
 .handoff-shot-table tbody tr:hover,
 .handoff-shot-table tbody tr.is-selected {
-  background: #edf9fa;
+  background: rgba(237, 249, 250, 0.72);
 }
 
 .handoff-shot-table tbody tr.is-pending {
@@ -648,14 +800,25 @@
   margin-top: 4px;
 }
 
+.handoff-table-source {
+  display: flex;
+  min-width: 120px;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .handoff-source-pill {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
-  background: #eef2f6;
-  color: #344050;
+  border: 1px solid rgba(13, 158, 175, 0.12);
+  background: #eef8fa;
+  color: #0b7380;
   font-size: 12px;
   font-weight: 700;
   padding: 5px 8px;
+  white-space: nowrap;
 }
 
 @media (max-width: 1020px) {
@@ -719,5 +882,449 @@
 
   .handoff-shot-card-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Restored storyboard workbench skin: dark by default, editorial blueprint in light theme. */
+.video-handoff-page {
+  --handoff-cyan: #14c8de;
+  --handoff-cyan-soft: rgba(20, 200, 222, 0.14);
+  --handoff-border: rgba(255, 255, 255, 0.1);
+  --handoff-panel: rgba(6, 7, 9, 0.74);
+  --handoff-panel-soft: rgba(255, 255, 255, 0.04);
+  --handoff-text: #f2f6f8;
+  --handoff-muted: rgba(226, 232, 240, 0.68);
+  --handoff-weak: rgba(148, 163, 184, 0.62);
+  isolation: isolate;
+  background:
+    linear-gradient(90deg, rgba(20, 200, 222, 0.035) 0 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px),
+    linear-gradient(135deg, rgba(0, 43, 48, 0.38), rgba(9, 7, 14, 0.72) 44%, #050505 100%);
+  background-size: 72px 72px, 100% 34px, auto;
+  color: var(--handoff-text);
+}
+
+.handoff-day-blueprint {
+  display: none;
+}
+
+.video-handoff-page__toolbar,
+.handoff-player,
+.handoff-agent,
+.handoff-shot-table {
+  border-color: var(--handoff-border);
+  background: linear-gradient(180deg, rgba(12, 14, 18, 0.84), rgba(4, 5, 7, 0.72));
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px);
+}
+
+.video-handoff-page__toolbar span,
+.handoff-kicker,
+.handoff-shot-card__body span {
+  color: var(--handoff-cyan);
+}
+
+.video-handoff-page__toolbar p,
+.handoff-section-heading span,
+.handoff-agent__header p,
+.handoff-player__caption span,
+.handoff-player__timeline button small {
+  color: var(--handoff-muted);
+}
+
+.handoff-player__header h1,
+.handoff-section-heading h2,
+.handoff-agent__header h2 {
+  color: var(--handoff-text);
+}
+
+.handoff-player__header h1::after,
+.handoff-section-heading h2::after {
+  background: linear-gradient(90deg, var(--handoff-cyan), rgba(20, 200, 222, 0.1));
+  box-shadow: 0 0 18px rgba(20, 200, 222, 0.48);
+}
+
+.handoff-player__meta,
+.handoff-player__source,
+.handoff-source-pill,
+.handoff-agent__header > span {
+  border: 1px solid rgba(20, 200, 222, 0.24);
+  background: rgba(20, 200, 222, 0.12);
+  color: #8df5ff;
+}
+
+.video-handoff-page__actions button,
+.handoff-agent__composer button,
+.handoff-agent__preview button {
+  border-color: rgba(20, 200, 222, 0.24);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--handoff-text);
+}
+
+.handoff-player__stage {
+  border-color: rgba(20, 200, 222, 0.22);
+  background:
+    linear-gradient(135deg, rgba(20, 200, 222, 0.14), transparent 42%),
+    linear-gradient(180deg, #071014, #050507);
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(20, 200, 222, 0.08);
+}
+
+.handoff-player__timeline button {
+  border-color: var(--handoff-border);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--handoff-text);
+}
+
+.handoff-player__timeline button.is-active {
+  border-color: rgba(20, 200, 222, 0.64);
+  background: rgba(20, 200, 222, 0.12);
+  box-shadow: inset 0 0 16px rgba(20, 200, 222, 0.16), 0 0 18px rgba(20, 200, 222, 0.08);
+}
+
+.handoff-agent__message {
+  border-color: var(--handoff-border);
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(241, 245, 249, 0.88);
+}
+
+.handoff-agent__message.is-user {
+  border-color: rgba(20, 200, 222, 0.32);
+  background: rgba(20, 200, 222, 0.12);
+  color: #dffcff;
+}
+
+.handoff-agent__quick button {
+  border-color: rgba(20, 200, 222, 0.2);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--handoff-muted);
+}
+
+.handoff-agent__quick button:hover {
+  border-color: rgba(20, 200, 222, 0.42);
+  color: #ffffff;
+}
+
+.handoff-agent__preview {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.handoff-agent__composer input {
+  border-color: var(--handoff-border);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--handoff-text);
+}
+
+.handoff-agent__composer input::placeholder {
+  color: var(--handoff-weak);
+}
+
+.handoff-view-toggle {
+  border-color: var(--handoff-border);
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.handoff-view-toggle button {
+  color: var(--handoff-weak);
+}
+
+.handoff-view-toggle button.is-active {
+  border: 1px solid rgba(20, 200, 222, 0.32);
+  background: rgba(20, 200, 222, 0.16);
+  color: #8df5ff;
+  box-shadow: inset 0 0 14px rgba(20, 200, 222, 0.14);
+}
+
+.handoff-shot-card {
+  border-color: var(--handoff-border);
+  background: rgba(0, 0, 0, 0.42);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(10px);
+}
+
+.handoff-shot-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.handoff-shot-card.is-selected {
+  border-color: rgba(20, 200, 222, 0.92);
+  box-shadow: 0 0 0 1px rgba(20, 200, 222, 0.24), 0 0 28px rgba(20, 200, 222, 0.18);
+}
+
+.handoff-shot-card__media {
+  border-bottom: 1px solid var(--handoff-border);
+  background: #0b1116;
+}
+
+.handoff-shot-card__body {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.handoff-shot-card__body div {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 10px;
+}
+
+.handoff-shot-card__body div::before {
+  display: none;
+}
+
+.handoff-shot-card__body p {
+  color: rgba(248, 250, 252, 0.88);
+}
+
+.handoff-shot-card__body div:not(:first-child) p {
+  color: var(--handoff-muted);
+}
+
+.handoff-shot-card__footer {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.34);
+}
+
+.handoff-asset-thumb {
+  border-color: rgba(20, 200, 222, 0.34);
+  background: rgba(20, 200, 222, 0.12);
+}
+
+.handoff-asset-thumb.is-empty {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--handoff-weak);
+}
+
+.handoff-asset-thumbs__label {
+  color: #8df5ff;
+}
+
+.handoff-shot-table__scroll {
+  border-color: var(--handoff-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.handoff-shot-table th {
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--handoff-muted);
+}
+
+.handoff-shot-table td {
+  border-color: rgba(255, 255, 255, 0.07);
+  color: rgba(248, 250, 252, 0.86);
+}
+
+.handoff-shot-table tbody tr:hover,
+.handoff-shot-table tbody tr.is-selected {
+  background: rgba(20, 200, 222, 0.08);
+}
+
+.theme-editorial-day .video-handoff-page {
+  --handoff-cyan: #058fc3;
+  --handoff-cyan-soft: rgba(5, 143, 195, 0.1);
+  --handoff-border: rgba(8, 23, 38, 0.13);
+  --handoff-panel: rgba(255, 253, 248, 0.88);
+  --handoff-panel-soft: rgba(255, 255, 255, 0.6);
+  --handoff-text: #081726;
+  --handoff-muted: #5c6570;
+  --handoff-weak: rgba(92, 101, 112, 0.72);
+  padding-left: clamp(24px, 10vw, 174px);
+  background:
+    linear-gradient(rgba(5, 143, 195, 0.075) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(5, 143, 195, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at 10% 10%, rgba(5, 143, 195, 0.12), transparent 25%),
+    linear-gradient(135deg, #f8f5ed 0%, #f4f0e7 48%, #ede7db 100%);
+  background-size: 100% 34px, 72px 100%, auto, auto;
+  color: var(--handoff-text);
+}
+
+.theme-editorial-day .handoff-day-blueprint {
+  position: fixed;
+  top: 5rem;
+  bottom: 3rem;
+  left: 2.35rem;
+  z-index: 0;
+  display: block;
+  width: 8.8rem;
+  pointer-events: none;
+  border-left: 2px solid rgba(5, 143, 195, 0.72);
+  color: var(--handoff-cyan);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.theme-editorial-day .handoff-day-blueprint::before,
+.theme-editorial-day .handoff-day-blueprint::after {
+  position: absolute;
+  left: -0.45rem;
+  width: 0.76rem;
+  height: 0.76rem;
+  border: 1px solid var(--handoff-cyan);
+  border-radius: 999px;
+  background: #fffdf8;
+  content: "";
+}
+
+.theme-editorial-day .handoff-day-blueprint::before {
+  top: 2.1rem;
+}
+
+.theme-editorial-day .handoff-day-blueprint::after {
+  bottom: 1.2rem;
+}
+
+.handoff-day-blueprint__kicker,
+.handoff-day-blueprint__count,
+.handoff-day-blueprint__note {
+  position: absolute;
+  left: 1.2rem;
+}
+
+.handoff-day-blueprint__kicker {
+  top: 0.4rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.handoff-day-blueprint__count {
+  top: 1.45rem;
+  font-size: 2.05rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.handoff-day-blueprint__note {
+  top: 4.35rem;
+  width: 7.2rem;
+  font-size: 0.63rem;
+  line-height: 1.65;
+  letter-spacing: 0.1em;
+}
+
+.handoff-day-blueprint__note::after {
+  position: absolute;
+  top: 2.1rem;
+  left: 0;
+  width: 6.6rem;
+  border-top: 1px solid rgba(5, 143, 195, 0.52);
+  content: "";
+}
+
+.theme-editorial-day .video-handoff-page__toolbar,
+.theme-editorial-day .handoff-player,
+.theme-editorial-day .handoff-agent,
+.theme-editorial-day .handoff-shot-table {
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.9), rgba(255, 255, 255, 0.7));
+  border-color: rgba(8, 23, 38, 0.12);
+  box-shadow: 0 20px 44px rgba(46, 38, 26, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.58) inset;
+}
+
+.theme-editorial-day .video-handoff-page__toolbar p,
+.theme-editorial-day .handoff-section-heading span,
+.theme-editorial-day .handoff-agent__header p,
+.theme-editorial-day .handoff-player__timeline button small {
+  color: var(--handoff-muted);
+}
+
+.theme-editorial-day .handoff-player__header h1,
+.theme-editorial-day .handoff-section-heading h2,
+.theme-editorial-day .handoff-agent__header h2 {
+  color: var(--handoff-text);
+}
+
+.theme-editorial-day .handoff-player__stage {
+  border-color: rgba(5, 143, 195, 0.24);
+  background: rgba(240, 252, 255, 0.42);
+  box-shadow: 0 24px 46px rgba(46, 38, 26, 0.14);
+}
+
+.theme-editorial-day .handoff-player__timeline button,
+.theme-editorial-day .handoff-agent__message,
+.theme-editorial-day .handoff-agent__quick button,
+.theme-editorial-day .handoff-agent__composer input {
+  border-color: rgba(8, 23, 38, 0.13);
+  background: rgba(255, 253, 248, 0.6);
+  color: var(--handoff-text);
+}
+
+.theme-editorial-day .handoff-player__timeline button.is-active {
+  border-color: rgba(5, 143, 195, 0.58);
+  background: rgba(223, 247, 251, 0.72);
+  box-shadow: 0 12px 24px rgba(5, 143, 195, 0.1);
+}
+
+.theme-editorial-day .handoff-agent__message.is-user {
+  background: rgba(223, 247, 251, 0.72);
+  color: #075d68;
+}
+
+.theme-editorial-day .handoff-shot-card {
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.9), rgba(255, 255, 255, 0.7));
+  border-color: rgba(8, 23, 38, 0.14);
+  box-shadow: 0 20px 36px rgba(46, 38, 26, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.58) inset;
+}
+
+.theme-editorial-day .handoff-shot-card.is-selected {
+  background: linear-gradient(180deg, rgba(240, 252, 255, 0.74), rgba(255, 253, 248, 0.86));
+  border-color: rgba(5, 143, 195, 0.86);
+  box-shadow: 0 24px 46px rgba(5, 143, 195, 0.16), 0 0 0 1px rgba(5, 143, 195, 0.28) inset;
+}
+
+.theme-editorial-day .handoff-shot-card__body {
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.82), rgba(255, 255, 255, 0.72));
+}
+
+.theme-editorial-day .handoff-shot-card__body div {
+  border-color: rgba(8, 23, 38, 0.12);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.theme-editorial-day .handoff-shot-card__body p,
+.theme-editorial-day .handoff-shot-table td {
+  color: #162233;
+}
+
+.theme-editorial-day .handoff-shot-card__body div:not(:first-child) p {
+  color: #4d5964;
+}
+
+.theme-editorial-day .handoff-shot-card__footer {
+  background: rgba(240, 252, 255, 0.42);
+  border-color: rgba(5, 143, 195, 0.14);
+}
+
+.theme-editorial-day .handoff-source-pill,
+.theme-editorial-day .handoff-player__meta,
+.theme-editorial-day .handoff-agent__header > span {
+  border-color: rgba(5, 143, 195, 0.22);
+  background: rgba(223, 247, 251, 0.72);
+  color: var(--handoff-cyan);
+}
+
+.theme-editorial-day .handoff-shot-table__scroll {
+  border-color: rgba(8, 23, 38, 0.12);
+  background: rgba(255, 253, 248, 0.52);
+}
+
+.theme-editorial-day .handoff-shot-table th {
+  background: rgba(240, 252, 255, 0.54);
+  color: #5c6570;
+}
+
+@media (max-width: 1180px) {
+  .theme-editorial-day .handoff-day-blueprint {
+    display: none;
+  }
+
+  .theme-editorial-day .video-handoff-page {
+    padding-left: 24px;
+  }
+}
+
+@media (max-width: 720px) {
+  .theme-editorial-day .video-handoff-page,
+  .video-handoff-page {
+    padding: 14px;
   }
 }
