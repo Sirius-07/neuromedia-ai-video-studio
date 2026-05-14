@@ -1557,7 +1557,7 @@ export const VisualStoryboardPage = () => {
                   if (sceneData.videoUrl) {
                     console.log(`[VisualStoryboardPage] ✅ 场景${sceneData.id} 从数据库加载了videoUrl:`, sceneData.videoUrl);
                   } else {
-                    console.warn(`[VisualStoryboardPage] ⚠️ 场景${sceneData.id} 数据库中没有videoUrl`);
+                    console.debug(`[VisualStoryboardPage] 场景${sceneData.id} 数据库中没有videoUrl`);
                   }
                 }
                 
@@ -2502,10 +2502,18 @@ export const VisualStoryboardPage = () => {
       setExportError(null);
 
       console.log('📤 开始导出粗剪，共', scenes.length, '个分镜');
+      const exportableScenes = videoExportApi.getExportableVideoScenes(scenes);
+
+      if (exportableScenes.length === 0) {
+        const message = '请先生成视频或上传视频素材，再导出粗剪。';
+        setExportError(message);
+        alert(message);
+        return;
+      }
 
       // 调用导出API（带进度）
       const result = await videoExportApi.exportRoughCutWithProgress(
-        scenes,
+        exportableScenes,
         (progress) => {
           console.log('📊 导出进度:', progress);
           setExportProgress(progress);

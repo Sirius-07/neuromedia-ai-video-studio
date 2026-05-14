@@ -9,6 +9,17 @@ import { apiUrl } from '../config/api';
 
 // API 基础地址
 const API_BASE_URL = apiUrl('');
+const VIDEO_FILE_EXTENSIONS = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'];
+
+function isLikelyVideoUrl(url?: string | null): boolean {
+  if (!url) return false;
+  const pathname = url.split('?')[0]?.toLowerCase() || '';
+  return VIDEO_FILE_EXTENSIONS.some(extension => pathname.endsWith(extension));
+}
+
+export function getExportableVideoScenes(scenes: Scene[]): Scene[] {
+  return scenes.filter(scene => Boolean(scene.videoUrl) || isLikelyVideoUrl(scene.assetUrl));
+}
 
 /**
  * 导出结果
@@ -84,17 +95,9 @@ export async function exportRoughCutWithProgress(
   return new Promise((resolve, reject) => {
     try {
       console.log('📤 开始导出粗剪（带进度），共', scenes.length, '个分镜');
-      
-      // 使用 EventSource 接收 SSE
-      const eventSource = new EventSource(
-        `${API_BASE_URL}/api/v1/video-export/rough-cut`,
-        {
-          // Note: EventSource 不支持 POST，需要修改为支持查询参数
-          // 或使用 fetch + ReadableStream
-        }
-      );
 
-      // 由于 EventSource 不支持 POST，我们使用 fetch + ReadableStream
+      // EventSource only supports GET; this export endpoint is POST + SSE.
+      // Use fetch streams directly so the browser never makes a stray GET request.
       fetch(`${API_BASE_URL}/api/v1/video-export/rough-cut`, {
         method: 'POST',
         headers: {
