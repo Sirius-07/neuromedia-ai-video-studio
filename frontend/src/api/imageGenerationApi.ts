@@ -1,3 +1,5 @@
+import { apiUrl, proxyImageUrl } from '../config/api';
+
 /**
  * 图片生成 API 模块
  * 使用豆包 Seedream 模型进行图片生成
@@ -5,7 +7,7 @@
  */
 
 // API 配置 - 通过后端代理
-const API_BASE_URL = 'http://localhost:4300/api/v1/image-gen';
+const API_BASE_URL = apiUrl('/api/v1/image-gen');
 
 // ============================================================
 // 类型定义
@@ -266,7 +268,7 @@ export async function imageUrlToBase64(imageUrl: string): Promise<string> {
     }
 
     // 通过后端代理获取图片，避免跨域问题
-    const proxyUrl = `http://localhost:4300/api/v1/proxy/image?url=${encodeURIComponent(imageUrl)}`;
+    const proxyUrl = proxyImageUrl(imageUrl);
     
     const response = await fetch(proxyUrl);
     if (!response.ok) {

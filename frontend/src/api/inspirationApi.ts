@@ -1,3 +1,5 @@
+import { apiUrl } from '../config/api';
+
 /**
  * 灵感激发模式 API 模块
  * 
@@ -5,7 +7,7 @@
  */
 
 // API 基础地址（Node.js 后端）
-const API_BASE_URL = 'http://localhost:4300';
+const API_BASE_URL = apiUrl('');
 
 // ============================================================
 // 类型定义

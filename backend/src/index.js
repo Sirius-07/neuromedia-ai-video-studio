@@ -1,8 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'fs';
 import soundtrackRoutes from './routes/soundtrackRoutes.js';
 import videoRoutes from './routes/videoRoutes.js';
 import scriptRoutes from './routes/scriptRoutes.js';
@@ -24,29 +22,51 @@ import inspirationRoutes from './routes/inspirationRoutes.js';
 import scriptEditRoutes from './routes/scriptEditRoutes.js';
 import storyboardAssistantRoutes from './routes/storyboardAssistantRoutes.js';
 import handoffExportRoutes from './routes/handoffExportRoutes.js';
-
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import {
+  COMFYUI_OUTPUT_DIR,
+  CORS_ORIGIN,
+  CORS_ORIGINS,
+  ENABLE_COMFYUI,
+  ENABLE_TTS,
+  PORT,
+  PUBLIC_URL,
+  UPLOADS_DIR,
+} from './config/serverConfig.js';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// ???
-app.use(cors());
-// ??????????????base64??????????AI????????????
+const corsOrigins = CORS_ORIGINS.length ? CORS_ORIGINS : CORS_ORIGIN ? [CORS_ORIGIN] : [];
+app.use(
+  cors(
+    corsOrigins.length
+      ? {
+          origin: corsOrigins,
+          credentials: true,
+        }
+      : undefined
+  )
+);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// ?????? - ?????????
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+app.use('/uploads', express.static(UPLOADS_DIR));
 
-// ComfyUI???? - ???????????
-const COMFYUI_OUTPUT_DIR = 'F:/ComfyUI_windows_portable/ComfyUI/output';
-app.use('/comfyui/output', express.static(COMFYUI_OUTPUT_DIR));
+if (ENABLE_COMFYUI && COMFYUI_OUTPUT_DIR) {
+  app.use('/comfyui/output', express.static(COMFYUI_OUTPUT_DIR));
+}
 
-// ??
+function disabledService(serviceName, envName) {
+  return (_req, res) => {
+    res.status(503).json({
+      success: false,
+      error: `${serviceName} is disabled`,
+      message: `Set ${envName}=true and configure the service URL/path to enable it.`,
+    });
+  };
+}
+
 app.use('/api/v1/soundtrack', soundtrackRoutes);
 app.use('/api/v1/video', videoRoutes);
 app.use('/api/v1/script', scriptRoutes);
@@ -56,51 +76,54 @@ app.use('/api/v1/image-gen', imageGenRoutes);
 app.use('/api/v1/script-sync', scriptSyncRoutes);
 app.use('/api/v1/proxy', proxyRoutes);
 app.use('/api/v1/video-export', videoExportRoutes);
-app.use('/api/v1/comfyui', comfyuiRoutes);
+app.use(
+  '/api/v1/comfyui',
+  ENABLE_COMFYUI ? comfyuiRoutes : disabledService('ComfyUI', 'ENABLE_COMFYUI')
+);
 app.use('/api/v1/transition', transitionRoutes);
 app.use('/api/v1/music-creation', musicCreationRoutes);
 app.use('/api/v1/storyboard', storyboardProjectRoutes);
 app.use('/api/v1/project', projectRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/tts', ttsRoutes);
+app.use('/api/tts', ENABLE_TTS ? ttsRoutes : disabledService('TTS', 'ENABLE_TTS'));
 app.use('/api/inspiration', inspirationRoutes);
 app.use('/api/script-edit', scriptEditRoutes);
 app.use('/api/storyboard-assistant', storyboardAssistantRoutes);
 app.use('/api/handoff', handoffExportRoutes);
 
-// ????
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'AI?????????' });
+app.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    publicUrl: PUBLIC_URL,
+    uploadsDir: UPLOADS_DIR,
+    features: {
+      tts: ENABLE_TTS,
+      comfyui: ENABLE_COMFYUI,
+    },
+  });
 });
 
 app.listen(PORT, async () => {
-  console.log(`?? ?????? http://localhost:${PORT}`);
-  
-  // ???? IndexTTS2 ??
-  console.log('\n===============================================');
-  console.log('?? ???? IndexTTS2 ??????...');
-  console.log('===============================================\n');
-  
+  console.log(`[server] listening on http://localhost:${PORT}`);
+
+  if (!ENABLE_TTS) {
+    console.log('[server] TTS disabled. Skipping IndexTTS2 startup.');
+    return;
+  }
+
   try {
     await ttsServiceManager.startService();
   } catch (error) {
-    console.error('?? IndexTTS2 ???????????????', error.message);
-    console.log('\n??????:');
-    console.log('  cd F:\\AIEditing\\index-tts');
-    console.log('  python api_server_v2.py');
-    console.log('');
+    console.error('[server] Failed to start IndexTTS2:', error.message);
   }
 });
 
-// ???? - ?? IndexTTS2 ??
-process.on('SIGINT', () => {
-  console.log('\n?? ???????...');
-  ttsServiceManager.stopService();
+function shutdown() {
+  if (ENABLE_TTS) {
+    ttsServiceManager.stopService();
+  }
   process.exit(0);
-});
+}
 
-process.on('SIGTERM', () => {
-  console.log('\n?? ???????...');
-  ttsServiceManager.stopService();
-  process.exit(0);
-});
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

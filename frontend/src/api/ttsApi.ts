@@ -1,10 +1,12 @@
+import { apiUrl } from '../config/api';
+
 /**
  * TTS API - 语音合成
  * 
  * 对接后端 IndexTTS2 服务
  */
 
-const API_BASE = 'http://localhost:4300/api/tts';
+const API_BASE = apiUrl('/api/tts');
 
 export interface VoiceOption {
   id: string;

@@ -18,6 +18,7 @@ import { getProxiedImageUrl, getProxiedImageUrls, extractOriginalUrl } from '../
 import * as sceneRegenerateApi from '../../api/sceneRegenerateApi';
 import { addStyleToPrompt } from '../../utils/stylePrompts';
 import { buildCinematicPrompt } from './promptUtils';
+import { assetUrl, proxyVideoUrl } from '../../config/api';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -105,12 +106,12 @@ export const SceneCard: React.FC<SceneCardProps> = ({
     // 如果是本地路径，直接使用（不通过代理）
     if (originalUrl.startsWith('/uploads/') || originalUrl.startsWith('uploads/')) {
       const directUrl = originalUrl.startsWith('/') ? originalUrl : `/${originalUrl}`;
-      console.log('[SceneCard] 使用直接URL:', `http://localhost:4300${directUrl}`);
-      return `http://localhost:4300${directUrl}`;
+      console.log('[SceneCard] 使用直接URL:', assetUrl(directUrl));
+      return assetUrl(directUrl);
     }
     
     // 远程URL通过代理
-    const proxiedUrl = `http://localhost:4300/api/v1/proxy/video?url=${encodeURIComponent(originalUrl)}`;
+    const proxiedUrl = proxyVideoUrl(originalUrl);
     console.log('[SceneCard] 使用代理URL:', proxiedUrl);
     return proxiedUrl;
   };

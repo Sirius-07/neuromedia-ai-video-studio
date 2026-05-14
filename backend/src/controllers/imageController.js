@@ -6,6 +6,7 @@
 import JimengService from '../services/JimengService.js';
 import ComfyUIService from '../services/ComfyUIService.js';
 import { imageTaskQueue, videoTaskQueue } from '../services/TaskQueueManager.js';
+import { ENABLE_COMFYUI } from '../config/serverConfig.js';
 
 /**
  * 检查服务配置状态
@@ -450,6 +451,10 @@ export const imageToVideo = async (req, res) => {
 
       // 根据模型选择不同的服务
       if (model === 'wan2.2' || model === 'comfyui') {
+        if (!ENABLE_COMFYUI) {
+          throw new Error('ComfyUI is disabled. Use a Jimeng video model or set ENABLE_COMFYUI=true.');
+        }
+
         // 使用 ComfyUI wan2.2 模型
         if (!imageUrl) {
           throw new Error('缺少必填参数: imageUrl');
@@ -640,5 +645,3 @@ export default {
   imageToVideo,
   textToVideo
 };
-
-

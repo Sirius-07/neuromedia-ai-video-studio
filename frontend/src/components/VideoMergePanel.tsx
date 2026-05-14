@@ -1,3 +1,5 @@
+import { assetUrl } from '../config/api';
+
 import React, { useState } from 'react'
 import { mergeVideo } from '../api/soundtrackApi'
 import './VideoMergePanel.css'
@@ -152,7 +154,7 @@ export const VideoMergePanel: React.FC<VideoMergePanelProps> = ({
 
           <div className="result-actions">
             <a
-              href={`http://localhost:4300${mergeResult.mergedVideo?.videoUrl}`}
+              href={assetUrl(mergeResult.mergedVideo?.videoUrl)}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-download"
@@ -160,7 +162,7 @@ export const VideoMergePanel: React.FC<VideoMergePanelProps> = ({
               📥 下载视频
             </a>
             <a
-              href={`http://localhost:4300${mergeResult.mergedVideo?.videoUrl}`}
+              href={assetUrl(mergeResult.mergedVideo?.videoUrl)}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-preview"
@@ -171,7 +173,7 @@ export const VideoMergePanel: React.FC<VideoMergePanelProps> = ({
 
           <div className="result-video-preview">
             <video
-              src={`http://localhost:4300${mergeResult.mergedVideo?.videoUrl}`}
+              src={assetUrl(mergeResult.mergedVideo?.videoUrl)}
               controls
               className="preview-video"
             >

@@ -31,6 +31,7 @@ import {
   type CreationAspectRatio,
   type CreationIntent,
 } from '../../types/creationIntent';
+import { apiUrl, assetUrl, proxyVideoUrl as buildProxyVideoUrl } from '../../config/api';
 
 // ============================================================
 // localStorage 持久化键名
@@ -109,14 +110,14 @@ const clearAllStorage = () => {
 const proxyVideoUrl = (url: string): string => {
   if (!url) return url;
   // 已经是代理 URL，不重复处理
-  if (url.startsWith('http://localhost:4300/')) return url;
+  if (url.startsWith(apiUrl('/'))) return url;
   // 本地上传路径
   if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
     const path = url.startsWith('/') ? url : `/${url}`;
-    return `http://localhost:4300${path}`;
+    return assetUrl(path);
   }
   // 远程 URL 通过代理
-  return `http://localhost:4300/api/v1/proxy/video?url=${encodeURIComponent(url)}`;
+  return buildProxyVideoUrl(url);
 };
 
 const resolveLocalAssetUrl = (url: string): string => {
@@ -124,7 +125,7 @@ const resolveLocalAssetUrl = (url: string): string => {
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
   if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
     const path = url.startsWith('/') ? url : `/${url}`;
-    return `http://localhost:4300${path}`;
+    return assetUrl(path);
   }
   return url;
 };
@@ -1672,7 +1673,7 @@ export const VisualStoryboardPage = () => {
         
         const blob = new Blob([data], { type: 'application/json' });
         const sent = navigator.sendBeacon(
-          `http://localhost:4300/api/v1/project/${projectId}/storyboard`,
+          apiUrl(`/api/v1/project/${projectId}/storyboard`),
           blob
         );
         
@@ -1681,7 +1682,7 @@ export const VisualStoryboardPage = () => {
         } else {
           console.warn('[VisualStoryboardPage] ⚠️ sendBeacon 发送失败，尝试同步保存');
           // 降级到同步保存
-          fetch(`http://localhost:4300/api/v1/project/${projectId}/storyboard`, {
+          fetch(apiUrl(`/api/v1/project/${projectId}/storyboard`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: data,
@@ -2018,7 +2019,7 @@ export const VisualStoryboardPage = () => {
     const input = aiDirectorInput.trim();
     // #region agent log
     console.log('[AI-Director][H-B/H-D] send triggered', {input, isLoading:isAiDirectorLoading, scenesCount:scenes.length});
-    fetch('http://localhost:4300/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'send-triggered',data:{input,isLoading:isAiDirectorLoading,scenesCount:scenes.length}})}).catch(()=>{});
+    fetch(apiUrl('/api/script-edit/debug-log'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'send-triggered',data:{input,isLoading:isAiDirectorLoading,scenesCount:scenes.length}})}).catch(()=>{});
     // #endregion
     if (!input || isAiDirectorLoading) return;
 
@@ -2055,7 +2056,7 @@ export const VisualStoryboardPage = () => {
 
       // #region agent log
       console.log('[AI-Director][H-A/H-E] API response', {success:result.success, error:result.error, action:result.data?.action, changesCount:result.data?.changes?.length, aiMessage:result.data?.message});
-      fetch('http://localhost:4300/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'api-response',data:{success:result.success,error:result.error,action:result.data?.action,changesCount:result.data?.changes?.length}})}).catch(()=>{});
+      fetch(apiUrl('/api/script-edit/debug-log'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'api-response',data:{success:result.success,error:result.error,action:result.data?.action,changesCount:result.data?.changes?.length}})}).catch(()=>{});
       // #endregion
 
       if (result.error === 'cancelled') return;
@@ -2074,7 +2075,7 @@ export const VisualStoryboardPage = () => {
       if (err?.name === 'AbortError' || err?.name === 'CanceledError') return;
       // #region agent log
       console.log('[AI-Director][H-A] error caught', {errName:err?.name, errMsg:err?.message});
-      fetch('http://localhost:4300/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'error-caught',data:{errName:err?.name,errMsg:err?.message}})}).catch(()=>{});
+      fetch(apiUrl('/api/script-edit/debug-log'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'error-caught',data:{errName:err?.name,errMsg:err?.message}})}).catch(()=>{});
       // #endregion
       console.error('[AI Director] 对话失败:', err);
       setAiDirectorMessages(prev => [...prev, { role: 'assistant', content: '抱歉，遇到了一些问题，请重试。' }]);
@@ -2533,7 +2534,7 @@ export const VisualStoryboardPage = () => {
 
   const handleDownloadExport = () => {
     if (exportResult) {
-      const downloadUrl = `http://localhost:4300${exportResult.videoUrl}`;
+      const downloadUrl = assetUrl(exportResult.videoUrl);
       videoExportApi.downloadFile(downloadUrl, exportResult.filename);
     }
   };
@@ -3218,7 +3219,7 @@ export const VisualStoryboardPage = () => {
           className="fixed left-0 top-1/2 z-50 -translate-y-1/2 xl:absolute"
         >
           <button
-            onClick={() => { setIsAiSidebarOpen(!isAiSidebarOpen); fetch('http://localhost:4300/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'sidebar-toggle',data:{opening:!isAiSidebarOpen}})}).catch(()=>{}); }}
+            onClick={() => { setIsAiSidebarOpen(!isAiSidebarOpen); fetch(apiUrl('/api/script-edit/debug-log'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'sidebar-toggle',data:{opening:!isAiSidebarOpen}})}).catch(()=>{}); }}
             aria-label={isAiSidebarOpen ? '收起 AI 分镜助手' : '打开 AI 分镜助手'}
             className="nm-day-edge-tab h-20 w-9 flex items-center justify-center group relative bg-white/80 dark:bg-black/70 backdrop-blur-xl border border-neutral-200 dark:border-white/10 border-l-0 rounded-r-2xl shadow-[8px_0_20px_rgba(0,0,0,0.1)] dark:shadow-[8px_0_20px_rgba(0,0,0,0.5)] hover:bg-white dark:hover:bg-black/90 transition-colors"
           >

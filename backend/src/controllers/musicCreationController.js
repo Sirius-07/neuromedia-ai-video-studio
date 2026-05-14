@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import { PUBLIC_URL } from '../config/serverConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -200,8 +201,7 @@ export const createMusicCreationTask = async (req, res) => {
           console.error(`[${taskId}] ⚠️ TOS上传失败，将使用本地文件路径:`, uploadError.message);
           
           // 如果TOS上传失败，尝试使用本地URL（仅用于开发环境）
-          const publicUrl = process.env.PUBLIC_URL || 'http://localhost:4300';
-          tosUrl = `${publicUrl}${concatResult.videoUrl}`;
+          tosUrl = `${PUBLIC_URL}${concatResult.videoUrl}`;
           
           console.log(`[${taskId}] ⚠️ 使用本地URL: ${tosUrl}`);
         }

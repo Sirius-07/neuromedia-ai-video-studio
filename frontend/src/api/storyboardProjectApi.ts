@@ -1,10 +1,12 @@
+import { apiUrl } from '../config/api';
+
 /**
  * 分镜项目持久化 API 客户端
  * 
  * 解决 localStorage 不可靠的问题，使用后端数据库存储
  */
 
-const API_BASE_URL = 'http://localhost:4300/api/v1/storyboard';
+const API_BASE_URL = apiUrl('/api/v1/storyboard');
 
 export interface Scene {
   id: number;

@@ -30,6 +30,7 @@ import {
   type PublishGoalHelpStepIcon,
   type StartPublishGoal,
 } from './startPageFlowCopy';
+import { assetUrl } from '../config/api';
 
 const log = createLogger('StartPage');
 
@@ -368,7 +369,7 @@ export const StartPage: React.FC<StartPageProps> = ({ onProjectsChange }) => {
                     >
                       {asset.file_type === 'image' ? (
                         <img
-                          src={`http://localhost:4300${asset.file_path.startsWith('/') ? '' : '/'}${asset.file_path}`}
+                          src={assetUrl(asset.file_path)}
                           alt={assetName}
                           className="w-full h-full object-cover"
                           onError={event => {

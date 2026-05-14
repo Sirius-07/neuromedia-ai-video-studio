@@ -5,9 +5,10 @@
  */
 
 import { createLogger } from '../utils/logger';
+import { apiUrl } from '../config/api';
 
 const log = createLogger('projectApi');
-const API_BASE_URL = 'http://localhost:4300/api/v1/project';
+const API_BASE_URL = apiUrl('/api/v1/project');
 
 export interface Project {
   id: string;

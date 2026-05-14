@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ScriptSyncButton } from './ScriptSyncButton';
 import { convertScriptToPrompt } from '../../api/scriptSyncApi';
 import { getProxiedImageUrl } from '../../utils/imageProxy';
+import { proxyVideoUrl } from '../../config/api';
 
 interface SidebarProps {
   scenes: Scene[];
@@ -287,7 +288,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       const isVideo = /\.(mp4|mov|avi|webm|mkv)(\?|$)/i.test(thumbnailUrl);
                       if (isVideo) {
                         // 视频URL使用视频代理
-                        thumbnailUrl = `http://localhost:4300/api/v1/proxy/video?url=${encodeURIComponent(thumbnailUrl)}`;
+                        thumbnailUrl = proxyVideoUrl(thumbnailUrl);
                       } else {
                         // 图片URL使用图片代理
                       thumbnailUrl = getProxiedImageUrl(thumbnailUrl);

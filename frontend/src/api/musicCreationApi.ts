@@ -1,10 +1,12 @@
+import { apiUrl } from '../config/api';
+
 /**
  * 音频创作API
  * 
  * 处理从分镜页面到音频创作的完整流程
  */
 
-const API_BASE_URL = 'http://localhost:4300/api/v1';
+const API_BASE_URL = apiUrl('/api/v1');
 
 export interface Scene {
   videoUrl: string;

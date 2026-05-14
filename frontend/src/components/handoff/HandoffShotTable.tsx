@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Film, Image as ImageIcon, LayoutGrid, Table2 } from 'lucide-react';
 import type { HandoffAssetRef, HandoffShot } from '../../types/videoHandoff';
+import { assetUrl } from '../../config/api';
 
 interface HandoffShotTableProps {
   shots: HandoffShot[];
@@ -106,7 +107,7 @@ function resolveMediaUrl(url?: string): string | undefined {
   if (!url) return undefined;
   if (/^(https?:|data:|blob:)/.test(url)) return url;
   const path = url.startsWith('/') ? url : `/${url}`;
-  if (path.startsWith('/uploads/')) return `http://localhost:4300${path}`;
+  if (path.startsWith('/uploads/')) return assetUrl(path);
   return path;
 }
 

@@ -5,9 +5,10 @@
  */
 
 import { Scene } from '../components/storyboard/types';
+import { apiUrl } from '../config/api';
 
 // API 基础地址
-const API_BASE_URL = 'http://localhost:4300';
+const API_BASE_URL = apiUrl('');
 
 /**
  * 导出结果

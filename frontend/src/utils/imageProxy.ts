@@ -1,3 +1,5 @@
+import { proxyImageUrl } from '../config/api';
+
 /**
  * 图片代理工具
  * 用于处理即梦图片的跨域问题
@@ -37,12 +39,12 @@ export function getProxiedImageUrl(originalUrl: string): string {
   
   // 如果是即梦URL，使用代理
   if (isJimengImageUrl(originalUrl)) {
-    return `http://localhost:4300/api/v1/proxy/image?url=${encodeURIComponent(originalUrl)}`;
+    return proxyImageUrl(originalUrl);
   }
   
   // 其他外部URL也使用代理（防止跨域）
   if (originalUrl.startsWith('http://') || originalUrl.startsWith('https://')) {
-    return `http://localhost:4300/api/v1/proxy/image?url=${encodeURIComponent(originalUrl)}`;
+    return proxyImageUrl(originalUrl);
   }
   
   return originalUrl;

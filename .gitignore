@@ -11,7 +11,6 @@ node_modules/
 *.db
 *.db-journal
 backend/prisma/dev.db
-backend/prisma/migrations/
 
 # 编译产物
 dist/

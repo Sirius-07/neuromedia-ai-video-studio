@@ -14,6 +14,7 @@ import {
   formatDuration,
   estimateVoiceoverDuration
 } from '../../api/ttsApi';
+import { assetUrl } from '../../config/api';
 
 interface VoiceoverGenerationDialogProps {
   scenes: Scene[];
@@ -111,7 +112,7 @@ export const VoiceoverGenerationDialog: React.FC<VoiceoverGenerationDialogProps>
           if (resultScene && resultScene.voiceover?.success) {
             return {
               ...scene,
-              voiceoverUrl: `http://localhost:4300${resultScene.voiceover.audio_url}`,
+              voiceoverUrl: assetUrl(resultScene.voiceover.audio_url),
               voiceoverDuration: resultScene.voiceover.duration
             };
           }
@@ -146,7 +147,7 @@ export const VoiceoverGenerationDialog: React.FC<VoiceoverGenerationDialogProps>
       }
     }
 
-    const audio = new Audio(`http://localhost:4300${audioUrl}`);
+    const audio = new Audio(assetUrl(audioUrl));
     audio.play();
     audio.onended = () => {
       setPlayingAudio(null);

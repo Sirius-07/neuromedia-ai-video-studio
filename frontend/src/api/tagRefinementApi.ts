@@ -3,8 +3,9 @@
  */
 
 import axios from 'axios';
+import { apiUrl } from '../config/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4300';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || apiUrl('');
 
 /**
  * 视频提示词标签结构

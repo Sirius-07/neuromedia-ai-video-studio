@@ -1,6 +1,7 @@
 import type { VideoHandoffSample } from '../types/videoHandoff';
+import { apiUrl } from '../config/api';
 
-const API_BASE_URL = 'http://localhost:4300';
+const API_BASE_URL = apiUrl('');
 
 function getFilenameFromDisposition(disposition: string | null): string | null {
   if (!disposition) return null;

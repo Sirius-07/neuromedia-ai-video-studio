@@ -1,9 +1,11 @@
+import { apiUrl } from '../config/api';
+
 /**
  * ComfyUI API 模块
  * 用于调用ComfyUI的工作流，特别是wan2.2首尾帧生成视频
  */
 
-const API_BASE_URL = 'http://localhost:4300';
+const API_BASE_URL = apiUrl('');
 
 export interface ComfyUITransitionParams {
   firstFrameUrl: string; // 首帧图片URL（base64或URL）
