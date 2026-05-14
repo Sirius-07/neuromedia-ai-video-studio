@@ -1,16 +1,21 @@
 import express from 'express';
+import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { generateScript, generateScriptMock, generateScriptAsync, getScriptTaskStatus } from '../controllers/scriptController.js';
+import { UPLOADS_DIR } from '../config/serverConfig.js';
 import AssetAnalysisService from '../services/AssetAnalysisService.js';
 
 const router = express.Router();
+const ASSET_UPLOAD_DIR = path.join(UPLOADS_DIR, 'assets');
+
+fs.mkdirSync(ASSET_UPLOAD_DIR, { recursive: true });
 
 // 配置文件上传
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/assets/');
+    cb(null, ASSET_UPLOAD_DIR);
   },
   filename: (req, file, cb) => {
     const timestamp = Date.now();
@@ -145,5 +150,3 @@ router.post('/upload-batch', upload.array('files', 10), (req, res) => {
 });
 
 export default router;
-
-

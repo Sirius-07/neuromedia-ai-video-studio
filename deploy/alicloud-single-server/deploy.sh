@@ -12,7 +12,7 @@ git fetch origin
 git checkout "$BRANCH"
 git pull --ff-only
 
-sudo mkdir -p "$WEB_DIR" "$UPLOADS_DIR" "$DATA_DIR"
+sudo mkdir -p "$WEB_DIR" "$UPLOADS_DIR/assets" "$UPLOADS_DIR/videos" "$UPLOADS_DIR/processed" "$DATA_DIR"
 sudo chown -R "$USER:$USER" /var/www/neuromedia
 
 if [ -d "$APP_DIR/backend/uploads" ] && [ ! -L "$APP_DIR/backend/uploads" ]; then
