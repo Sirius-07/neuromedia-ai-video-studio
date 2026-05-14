@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, LayoutTemplate, Download, Loader2, GripVertical, AlertTriangle, Sparkles, CheckCircle2, FileVideo, UploadCloud, BrainCircuit, Music, ImagePlus, Video, Plus, Copy, Trash2, Image as ImageIcon, Film, Clock, GripHorizontal, Undo2, Send, RefreshCw, Bot, ChevronRight, Lightbulb, Square, Play, MoreHorizontal, SlidersHorizontal } from 'lucide-react';
+import { LayoutTemplate, Download, Loader2, GripVertical, AlertTriangle, Sparkles, CheckCircle2, FileVideo, UploadCloud, BrainCircuit, Music, ImagePlus, Video, Plus, Copy, Trash2, Image as ImageIcon, Film, Clock, GripHorizontal, Undo2, Send, RefreshCw, Bot, ChevronLeft, ChevronRight, Lightbulb, Square, Play, MoreHorizontal, SlidersHorizontal } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Inspector } from './Inspector';
 import { SceneCard } from './SceneCard';
@@ -860,6 +860,8 @@ const MusicCreationLoadingOverlay = ({ taskStatus }: { taskStatus: musicCreation
 interface LocationState {
   scriptData?: ScriptResponse;
   userPrompt?: string;
+  projectTitle?: string;
+  title?: string;
   projectId?: string;
   uploadedAssets?: any[];
   generationMode?: string;
@@ -992,7 +994,12 @@ export const VisualStoryboardPage = () => {
       });
       
       // 使用灵感数据中的标题,或者使用自定义标题
-      const title: string = inspirationDataFromScript?.proposal?.title || projectTitle || '未命名项目';
+      const title: string =
+        inspirationDataFromScript?.proposal?.title ||
+        locationState?.projectTitle ||
+        locationState?.title ||
+        scriptData?.title ||
+        '未命名项目';
       
       return {
         scenes: scenes,
@@ -1101,7 +1108,7 @@ export const VisualStoryboardPage = () => {
       title: '新建项目',
       selectedId: 1
     };
-  }, [scriptData, shouldGenerate, userPrompt, projectId, customScenesFromScript, aspectRatioFromScript, inspirationDataFromScript, uploadedAssets]);
+  }, [scriptData, shouldGenerate, userPrompt, projectId, customScenesFromScript, aspectRatioFromScript, inspirationDataFromScript, uploadedAssets, locationState?.projectTitle, locationState?.title]);
 
   // ============================================================
   // 状态管理
@@ -2535,28 +2542,12 @@ export const VisualStoryboardPage = () => {
   // 音配创作（拼接视频 → 上传TOS → AI分析 → 跳转）
   // ============================================================
   
-  const handleMusicCreation = () => {
-    if (projectId) {
-      navigate(`/editor?projectId=${projectId}`);
-    } else {
-      navigate('/editor');
-    }
-  };
-
   const selectedScene = scenes.find(s => s.id === selectedSceneId);
   
   // 对比模式状态
   const [isCompareMode, setIsCompareMode] = useState(false);
 
   const hasGeneratedVisuals = scenes.some(scene => scene.assetUrl || scene.videoUrl);
-  const hasGeneratedVideos = scenes.some(scene => scene.videoUrl);
-  const bottomCtaLabel = !hasGeneratedVisuals
-    ? '先生成分镜画面'
-    : hasGeneratedVideos
-      ? '进入配乐与粗剪'
-      : '生成配乐';
-  const proposalAlternatives = workbenchIntent?.proposalAlternatives || [];
-  const selectedProposalTitle = workbenchIntent?.selectedProposal?.title || inspirationProposal?.title || '';
 
   const applyWorkbenchAspectRatio = (nextRatio: CreationAspectRatio) => {
     const shouldRegenerate = hasGeneratedVisuals && window.confirm('已生成的画面不会自动改变画幅。是否清除已生成画面，并按新画幅重新生成？\n\n取消则只应用到后续生成。');
@@ -2582,52 +2573,6 @@ export const VisualStoryboardPage = () => {
       : scene
     ));
     setWorkbenchIntent(prev => prev ? { ...prev, artStyle: nextStyle } : prev);
-  };
-
-  const handleProposalSwitch = (title: string) => {
-    const nextProposal = proposalAlternatives.find(proposal => proposal.title === title);
-    if (!nextProposal) return;
-
-    const shouldRegenerate = scenes.length === 0 || window.confirm('切换方案会改变项目方向。是否用新方案重新生成镜头草稿？\n\n取消则保留当前镜头，只更新项目方向。');
-    setWorkbenchIntent(prev => prev ? { ...prev, selectedProposal: nextProposal, artStyle: prev.artStyle || nextProposal.visualStyle } : createCreationIntent({
-      inputMode: savedUploadedAssets && savedUploadedAssets.length > 0 ? 'assets' : 'article',
-      publishGoal: 'refine_handoff',
-      prompt: savedUserPrompt || '',
-      uploadedAssets: (savedUploadedAssets as any) || [],
-      generationMode: (savedGenerationMode as any) || 'ai_generated',
-      proposals: proposalAlternatives,
-      selectedProposal: nextProposal,
-      aspectRatio: workbenchAspectRatio,
-      artStyle: workbenchArtStyle,
-    }));
-
-    if (shouldRegenerate) {
-      const proposalScenes = nextProposal.roughScript.scenes.map((scene: any, index: number): Scene => {
-        const assetPath = scene.assetPath || scene.reference_asset_path;
-
-        return {
-          id: index + 1,
-          type: scene.type === 'mixed_media' ? 'real' : 'ai',
-          duration: `${scene.duration || 5}s`,
-          script: scene.description || scene.script || '',
-          narration: scene.script || scene.narration || '',
-          isAiGenerated: scene.type !== 'mixed_media',
-          visualPrompt: scene.visual || scene.description || '',
-          motionPrompt: scene.cameraMovement || scene.camera_movement || '',
-          generationStatus: assetPath ? 'image_selected' : 'idle',
-          footageStatus: assetPath ? 'filled' : 'empty',
-          assetUrl: assetPath || undefined,
-          imageResolution: getImageResolutionByAspectRatio(workbenchAspectRatio),
-          postProcessing: {},
-          transitionType: 'none',
-          designReason: nextProposal.reasoning,
-          creativeNotes: [`风格: ${nextProposal.visualStyle}`, `配乐: ${nextProposal.bgmStyle}`],
-        };
-      });
-      setScenes(proposalScenes);
-      setProjectTitle(nextProposal.title);
-      setSelectedSceneId(proposalScenes[0]?.id || null);
-    }
   };
 
   const handleAdvancedScriptEdit = () => {
@@ -2778,24 +2723,7 @@ export const VisualStoryboardPage = () => {
     <div className="nm-flow-page nm-storyboard-page flex flex-col h-full w-full min-w-0 bg-neutral-50 dark:bg-[#050505] text-neutral-900 dark:text-neutral-200 overflow-hidden font-sans">
       {/* ── 分镜工具条 ─────────────────────────────────────────── */}
       <div className="nm-workbench-toolbar border-b border-neutral-200 dark:border-white/10 bg-white/70 dark:bg-[#0a0a0a]/70 backdrop-blur-md flex flex-col gap-2 px-3 py-2 flex-shrink-0 z-20 lg:h-11 lg:flex-row lg:items-center lg:justify-between lg:px-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {proposalAlternatives.length > 0 && (
-            <select
-              value={selectedProposalTitle}
-              onChange={e => handleProposalSwitch(e.target.value)}
-              className="max-w-[210px] rounded-md border border-neutral-200 bg-white/70 px-2 py-1 text-[11px] text-neutral-700 outline-none dark:border-white/10 dark:bg-black/30 dark:text-neutral-300"
-              title="切换视频方案"
-            >
-              {proposalAlternatives.map((proposal, index) => (
-                <option key={`${proposal.title}-${index}`} value={proposal.title}>
-                  {proposal.isRecommended ? '推荐 · ' : ''}{proposal.title}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        <div className="flex w-full items-center gap-1 sm:w-auto sm:justify-end">
+        <div className="flex w-full items-center justify-end gap-1">
           <button onClick={handleBatchGenerateImages} disabled={isBatchGeneratingImages || isBatchGeneratingVideos || scenes.length === 0}
             className="flex items-center gap-1.5 rounded-md border border-cyan-500/30 bg-cyan-500/15 px-3 py-1.5 text-[11px] font-medium text-cyan-700 transition-colors hover:bg-cyan-500/20 disabled:opacity-50 dark:text-cyan-300">
             {isBatchGeneratingImages ? <><Loader2 size={12} className="animate-spin" />{batchGenerationProgress.current}/{batchGenerationProgress.total}</> : <><ImagePlus size={12} />生成图片</>}
@@ -2834,7 +2762,7 @@ export const VisualStoryboardPage = () => {
       </div>
 
       {/* ── 新版主内容区域 ───────────────────────────────────────── */}
-      <div className="nm-storyboard-workbench flex-1 flex min-w-0 overflow-hidden relative">
+      <div className={`nm-storyboard-workbench ${isAiSidebarOpen ? 'nm-ai-sidebar-open' : ''} flex-1 flex min-w-0 overflow-hidden relative`}>
         <div className="nm-storyboard-day-blueprint" aria-hidden="true">
           <span className="nm-storyboard-day-kicker">STORYBOARD</span>
           <span className="nm-storyboard-day-count">{String(Math.max(scenes.length, 1)).padStart(2, '0')}</span>
@@ -3282,34 +3210,21 @@ export const VisualStoryboardPage = () => {
             </div>
           )}
 
-          {/* 底部上下文操作按钮 */}
-          <div className="nm-day-action-bar absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white dark:from-[#050505] via-white/80 dark:via-[#050505]/80 to-transparent flex justify-center pointer-events-none z-20">
-            <motion.button
-              whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(34,211,238,0.6)' }}
-              whileTap={{ scale: 0.98 }}
-              onClick={!hasGeneratedVisuals ? handleBatchGenerateImages : handleMusicCreation}
-              disabled={scenes.length === 0 || isBatchGeneratingImages || isBatchGeneratingVideos}
-              className="pointer-events-auto flex max-w-[calc(100vw-2rem)] items-center justify-center gap-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-6 py-4 rounded-full font-medium transition-all shadow-[0_0_20px_rgba(34,211,238,0.4)] border border-white/20 disabled:opacity-50 disabled:cursor-not-allowed sm:px-12"
-            >
-              <span className="text-sm">{bottomCtaLabel}</span>
-              {!hasGeneratedVisuals ? <ImagePlus size={18} /> : hasGeneratedVideos ? <ArrowRight size={18} /> : <Music size={18} />}
-            </motion.button>
-          </div>
         </div>
 
         {/* ── AI Director 侧边栏开关 ────────────────────────────── */}
         <motion.div
           transition={{ type: 'spring', bounce: 0, duration: 0.5 }}
-          className="fixed right-0 top-1/2 z-50 -translate-y-1/2 xl:absolute"
+          className="fixed left-0 top-1/2 z-50 -translate-y-1/2 xl:absolute"
         >
           <button
             onClick={() => { setIsAiSidebarOpen(!isAiSidebarOpen); fetch('http://localhost:4300/api/script-edit/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'sidebar-toggle',data:{opening:!isAiSidebarOpen}})}).catch(()=>{}); }}
             aria-label={isAiSidebarOpen ? '收起 AI 分镜助手' : '打开 AI 分镜助手'}
-            className="nm-day-edge-tab h-20 w-9 flex items-center justify-center group relative bg-white/80 dark:bg-black/70 backdrop-blur-xl border border-neutral-200 dark:border-white/10 border-r-0 rounded-l-2xl shadow-[-8px_0_20px_rgba(0,0,0,0.1)] dark:shadow-[-8px_0_20px_rgba(0,0,0,0.5)] hover:bg-white dark:hover:bg-black/90 transition-colors"
+            className="nm-day-edge-tab h-20 w-9 flex items-center justify-center group relative bg-white/80 dark:bg-black/70 backdrop-blur-xl border border-neutral-200 dark:border-white/10 border-l-0 rounded-r-2xl shadow-[8px_0_20px_rgba(0,0,0,0.1)] dark:shadow-[8px_0_20px_rgba(0,0,0,0.5)] hover:bg-white dark:hover:bg-black/90 transition-colors"
           >
-            <div className="absolute inset-0 bg-cyan-500/10 blur-md opacity-0 group-hover:opacity-100 transition-opacity rounded-l-2xl" />
+            <div className="absolute inset-0 bg-cyan-500/10 blur-md opacity-0 group-hover:opacity-100 transition-opacity rounded-r-2xl" />
             {isAiSidebarOpen ? (
-              <ChevronRight size={16} className="text-neutral-500 group-hover:text-cyan-400 transition-colors relative z-10" />
+              <ChevronLeft size={16} className="text-neutral-500 group-hover:text-cyan-400 transition-colors relative z-10" />
             ) : (
               <Bot size={18} className="text-cyan-500/70 group-hover:text-cyan-400 group-hover:drop-shadow-[0_0_8px_rgba(34,211,238,0.8)] transition-all relative z-10" />
             )}
@@ -3326,10 +3241,10 @@ export const VisualStoryboardPage = () => {
         {/* ── AI Director 侧边栏（StoryboardDirectorPanel）── */}
         <motion.div
           initial={false}
-          animate={{ x: isAiSidebarOpen ? 0 : '100%', opacity: isAiSidebarOpen ? 1 : 0 }}
+          animate={{ x: isAiSidebarOpen ? 0 : '-100%', opacity: isAiSidebarOpen ? 1 : 0 }}
           transition={{ type: 'spring', bounce: 0, duration: 0.5 }}
           style={{ pointerEvents: isAiSidebarOpen ? 'auto' : 'none' }}
-          className="fixed right-0 top-0 bottom-0 z-40 flex w-full flex-col overflow-hidden shadow-[-20px_0_50px_rgba(0,0,0,0.4)] sm:w-[360px] xl:w-[320px]"
+          className="fixed left-0 top-[100px] bottom-0 z-40 flex w-full flex-col overflow-hidden shadow-[20px_0_50px_rgba(0,0,0,0.4)] sm:w-[360px] xl:w-[320px]"
         >
           <StoryboardDirectorPanel
             scenes={scenes}

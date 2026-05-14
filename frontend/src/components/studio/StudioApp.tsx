@@ -28,7 +28,6 @@ import { EditorPage } from '../EditorPage';
 import { getRecentProjects, deleteProject, ProjectListItem } from '../../api/projectApi';
 import { getProject } from '../../api/projectApi';
 import { mergeCreationIntentFromProject } from '../../types/creationIntent';
-import { getStudioHeaderSummary } from './studioHeaderMeta';
 
 // ── Dark Mode Context ─────────────────────────────────────────────────────────
 
@@ -607,7 +606,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ onOpenWorkspace }) => {
 export function StudioApp() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [recentProjects, setRecentProjects] = useState<ProjectListItem[]>([]);
-  const [loadedHeaderIntent, setLoadedHeaderIntent] = useState<WorkbenchHeaderIntent | null>(null);
+  const [, setLoadedHeaderIntent] = useState<WorkbenchHeaderIntent | null>(null);
   const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>(() => {
     const saved = localStorage.getItem('neuromedia_project_aspect_ratio') as AspectRatioOption | null;
     return aspectRatioOptions.some(option => option.id === saved) ? saved : '16:9';
@@ -640,9 +639,7 @@ export function StudioApp() {
     if (!currentProject || !hasExplicitWorkbenchIntent(currentProject.settings)) return null;
     return mergeCreationIntentFromProject(currentProject);
   }, [currentProject]);
-  const headerCreationIntent = routeCreationIntent || savedCreationIntent || loadedHeaderIntent;
   const headerProjectTitle = routeState?.projectData?.title || currentProject?.title || (currentProjectId ? '未命名项目' : '');
-  const headerStageSummary = !isDraft ? getStudioHeaderSummary(currentStage, headerCreationIntent) : '';
 
   // Load dark mode preference
   useEffect(() => {
@@ -925,12 +922,6 @@ export function StudioApp() {
                   </span>
                 )}
               </div>
-
-              {!isDraft && (
-                <div className="hidden shrink-0 rounded-md border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium tracking-normal text-cyan-700 dark:text-cyan-300 sm:block">
-                  {headerStageSummary}
-                </div>
-              )}
 
               {/* Right: Dark mode + Settings + Avatar */}
               <div className="flex flex-none items-center justify-end gap-2 text-neutral-500 sm:gap-3">

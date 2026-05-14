@@ -7,6 +7,7 @@ import React, {
   useRef,
   useEffect,
   useCallback,
+  useMemo,
   type KeyboardEvent,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,12 +23,21 @@ import {
   AlertCircle,
   Image as ImageIcon,
   Video,
+  Gauge,
+  Target,
+  WandSparkles,
+  MessagesSquare,
 } from "lucide-react";
 
 import type { Scene }               from "../types";
 import type { StoryboardMode, DirectorMessage } from "./types";
 import { useStoryboardAssistant }    from "./useStoryboardAssistant";
 import StoryboardActionPreview       from "./StoryboardActionPreview";
+import {
+  deriveStoryboardAgentState,
+  type StoryboardAgentInsight,
+  type StoryboardAgentMetric,
+}                                    from "./agentIntelligence";
 
 // ─────────────────────────────────────────────────────────────
 // 快捷建议内容（按模式 × 是否选中 shot 分类）
@@ -90,17 +100,13 @@ function TypingIndicator() {
 // ─────────────────────────────────────────────────────────────
 
 function EmptyState({
-  mode,
-  hasSelectedShot,
+  insight,
   onSuggest,
 }: {
-  mode:            StoryboardMode;
-  hasSelectedShot: boolean;
+  insight:         StoryboardAgentInsight;
   onSuggest:       (text: string) => void;
 }) {
-  const starters = hasSelectedShot
-    ? SUGGESTIONS[mode].shot
-    : SUGGESTIONS[mode].global;
+  const starters = insight.quickPrompts.slice(0, 3);
 
   return (
     <div className="flex flex-col items-center justify-center h-full gap-5 px-6 text-center">
@@ -108,11 +114,9 @@ function EmptyState({
         <Film size={22} className="text-violet-400" />
       </div>
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-neutral-300">AI 分镜助手已就绪</p>
+        <p className="text-sm font-medium text-neutral-300">{insight.emptyTitle}</p>
         <p className="text-xs text-neutral-500 leading-relaxed">
-          {hasSelectedShot
-            ? "已选中分镜，可以直接描述你想怎么改"
-            : "先选中一个分镜做精修，或直接发起全局修改"}
+          {insight.emptyDescription}
         </p>
       </div>
       <div className="w-full space-y-1.5">
@@ -138,10 +142,12 @@ function SuggestionChips({
   suggestions,
   disabled,
   onSelect,
+  variant = "soft",
 }: {
   suggestions: string[];
   disabled?:   boolean;
   onSelect:    (text: string) => void;
+  variant?:     "soft" | "choice";
 }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -150,11 +156,90 @@ function SuggestionChips({
           key={s}
           onClick={() => onSelect(s)}
           disabled={disabled}
-          className="text-[11px] px-2.5 py-1 rounded-full bg-white/[0.04] hover:bg-violet-500/10 border border-white/[0.08] hover:border-violet-500/30 text-neutral-400 hover:text-violet-300 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+          className={`text-[11px] px-2.5 py-1 rounded-full border transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${
+            variant === "choice"
+              ? "bg-cyan-500/10 hover:bg-cyan-500/[0.18] border-cyan-500/25 hover:border-cyan-500/[0.45] text-cyan-200 hover:text-cyan-100"
+              : "bg-white/[0.04] hover:bg-violet-500/10 border-white/[0.08] hover:border-violet-500/30 text-neutral-400 hover:text-violet-300"
+          }`}
         >
           {s}
         </button>
       ))}
+    </div>
+  );
+}
+
+function AgentMetricPill({ metric }: { metric: StoryboardAgentMetric }) {
+  const toneClass =
+    metric.tone === "good"
+      ? "border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-300"
+      : metric.tone === "warn"
+        ? "border-amber-500/20 bg-amber-500/[0.08] text-amber-300"
+        : "border-white/[0.08] bg-white/[0.04] text-neutral-400";
+
+  return (
+    <div className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 ${toneClass}`}>
+      <span className="text-[10px]">{metric.label}</span>
+      <span className="font-mono text-[10px] font-semibold">{metric.value}</span>
+    </div>
+  );
+}
+
+function AgentContextBrief({
+  insight,
+  disabled,
+  onSuggest,
+}: {
+  insight: StoryboardAgentInsight;
+  disabled?: boolean;
+  onSuggest: (text: string) => void;
+}) {
+  return (
+    <div className="px-4 py-3 border-b border-white/[0.04] shrink-0 space-y-2.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-500">
+            <Target size={11} />
+            <span>{insight.focusLabel}</span>
+            <span className="text-neutral-700">/</span>
+            <span>{insight.modeLabel}</span>
+          </div>
+          <p className="line-clamp-2 text-[11px] leading-relaxed text-neutral-400">
+            {insight.primaryNeed}
+          </p>
+        </div>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-300">
+          <Gauge size={15} />
+          <span className="ml-0.5 text-[10px] font-semibold">{insight.completionPercent}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1.5">
+        {insight.metrics.map((metric) => (
+          <AgentMetricPill key={metric.label} metric={metric} />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onSuggest(insight.recommendedPrompt)}
+          className="flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-2 py-1.5 text-[11px] font-medium text-cyan-300 transition-colors hover:bg-cyan-500/[0.16] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <WandSparkles size={12} />
+          推荐下一步
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onSuggest(insight.optionPrompt)}
+          className="flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 text-[11px] font-medium text-neutral-400 transition-colors hover:border-violet-500/25 hover:bg-violet-500/10 hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <MessagesSquare size={12} />
+          先给选项
+        </button>
+      </div>
     </div>
   );
 }
@@ -165,11 +250,11 @@ function SuggestionChips({
 
 function MessageBubble({
   message,
-  onSuggest,
+  onChoice,
   disabled,
 }: {
   message:   DirectorMessage;
-  onSuggest: (text: string) => void;
+  onChoice:  (text: string) => void;
   disabled?: boolean;
 }) {
   const isAssistant = message.role === "assistant";
@@ -232,7 +317,8 @@ function MessageBubble({
           <SuggestionChips
             suggestions={message.suggestions}
             disabled={disabled}
-            onSelect={onSuggest}
+            onSelect={onChoice}
+            variant="choice"
           />
         </div>
       )}
@@ -351,11 +437,19 @@ export default function StoryboardDirectorPanel({
   const isLoading     = actionStatus === "thinking" || actionStatus === "applying";
   const isAwaitingConfirm = actionStatus === "awaiting-confirm";
   const hasSelectedShot   = selectedShotId !== null;
+  const isChoiceDisabled   = isLoading || isAwaitingConfirm;
+
+  const agentInsight = useMemo(
+    () => deriveStoryboardAgentState(scenes, mode, selectedShotId),
+    [scenes, mode, selectedShotId]
+  );
 
   // 当前活跃建议列表
   const activeSuggestions = hasSelectedShot
-    ? SUGGESTIONS[mode].shot
-    : SUGGESTIONS[mode].global;
+    ? agentInsight.quickPrompts
+    : agentInsight.quickPrompts.length > 0
+      ? agentInsight.quickPrompts
+      : SUGGESTIONS[mode].global;
 
   // ── 自动滚动至底部 ────────────────────────────────────────
   useEffect(() => {
@@ -376,6 +470,14 @@ export default function StoryboardDirectorPanel({
       setTimeout(() => inputRef.current?.focus(), 50);
     },
     [setInputDraft]
+  );
+
+  const handleChoice = useCallback(
+    (text: string) => {
+      if (isChoiceDisabled) return;
+      sendMessage(text);
+    },
+    [isChoiceDisabled, sendMessage]
   );
 
   // ── 发送逻辑 ─────────────────────────────────────────────
@@ -445,11 +547,17 @@ export default function StoryboardDirectorPanel({
         <ShotIndicator scenes={scenes} selectedShotId={selectedShotId} />
       </div>
 
+      <AgentContextBrief
+        insight={agentInsight}
+        disabled={isChoiceDisabled}
+        onSuggest={handleSuggest}
+      />
+
       {/* ── 快捷建议 chips ── */}
       <div className="px-4 pt-3 pb-2.5 border-b border-white/[0.04] shrink-0">
         <SuggestionChips
-          suggestions={activeSuggestions}
-          disabled={isLoading || isAwaitingConfirm}
+          suggestions={activeSuggestions.slice(0, 4)}
+          disabled={isChoiceDisabled}
           onSelect={handleSuggest}
         />
       </div>
@@ -466,8 +574,7 @@ export default function StoryboardDirectorPanel({
         {/* 空状态 */}
         {messages.length === 0 && actionStatus === "idle" ? (
           <EmptyState
-            mode={mode}
-            hasSelectedShot={hasSelectedShot}
+            insight={agentInsight}
             onSuggest={handleSuggest}
           />
         ) : (
@@ -476,8 +583,8 @@ export default function StoryboardDirectorPanel({
               <MessageBubble
                 key={msg.id}
                 message={msg}
-                onSuggest={handleSuggest}
-                disabled={isLoading || isAwaitingConfirm}
+                onChoice={handleChoice}
+                disabled={isChoiceDisabled}
               />
             ))}
           </AnimatePresence>

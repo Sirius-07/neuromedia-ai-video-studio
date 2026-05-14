@@ -18,6 +18,7 @@
  * 14. modeSchema 非空且包含模式关键词
  * 15. page 字段固定为 "storyboard"
  * 16. smartGeneration.cameraControl 缺失时 video shot 的相机字段为 null
+ * 17. conversation 选项注入并过滤空内容
  */
 
 import { describe, it, expect } from "vitest";
@@ -396,6 +397,21 @@ describe("buildStoryboardContext", () => {
     it("未传 lastActionSummary 时，结果中不含该字段", () => {
       const result = buildStoryboardContext([], "image", null, "项目");
       expect("lastActionSummary" in result).toBe(false);
+    });
+
+    it("传入 conversation 时，结果中包含非空对话", () => {
+      const result = buildStoryboardContext([], "image", null, "项目", {
+        conversation: [
+          { role: "assistant", content: "你想选哪种风格？", suggestions: ["纪实", "电影感"] },
+          { role: "user", content: "电影感" },
+          { role: "assistant", content: "   " },
+        ],
+      });
+
+      expect(result.conversation).toEqual([
+        { role: "assistant", content: "你想选哪种风格？", suggestions: ["纪实", "电影感"] },
+        { role: "user", content: "电影感" },
+      ]);
     });
   });
 
