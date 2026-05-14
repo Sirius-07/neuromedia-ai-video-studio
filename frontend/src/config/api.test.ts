@@ -2,12 +2,18 @@ import { describe, expect, it } from 'vitest';
 import {
   apiUrl,
   assetUrl,
+  getDefaultApiBaseUrl,
   normalizeApiBaseUrl,
   proxyImageUrl,
   proxyVideoUrl,
 } from './api';
 
 describe('api URL helpers', () => {
+  it('uses same-origin URLs in production and localhost in development by default', () => {
+    expect(getDefaultApiBaseUrl(false)).toBe('');
+    expect(getDefaultApiBaseUrl(true)).toBe('http://localhost:4300');
+  });
+
   it('normalizes API origins and joins request paths', () => {
     expect(normalizeApiBaseUrl('https://api.example.com/')).toBe('https://api.example.com');
     expect(apiUrl('/api/v1/project', 'https://api.example.com/')).toBe(

@@ -1,38 +1,34 @@
-# NeuroMedia Deployment Guide
+# NeuroMedia Single-Server Deployment
 
-This project is best deployed as:
+This is the quickest deployment path: run both frontend and backend on one Alibaba Cloud ECS instance.
 
-- `frontend/` on Vercel
-- `backend/` on an Alibaba Cloud ECS instance or similar long-running server
-- media uploads on a persistent disk first, then TOS/object storage when traffic grows
-
-ComfyUI and TTS are disabled by default for cloud deployment.
-
-## 1. Frontend on Vercel
-
-Create a Vercel project from the GitHub repository and set:
-
-| Setting | Value |
-| --- | --- |
-| Root Directory | `frontend` |
-| Build Command | `npm run build` |
-| Output Directory | `dist` |
-
-Environment variable:
-
-```env
-VITE_API_BASE_URL=https://api.example.com
+```
+https://your-domain.com/          -> frontend/dist static files
+https://your-domain.com/api/...   -> backend on 127.0.0.1:4300
+https://your-domain.com/uploads/  -> uploaded/generated media files
 ```
 
-Replace `https://api.example.com` with the public backend API domain.
+ComfyUI and TTS are disabled by default.
 
-`frontend/vercel.json` contains a SPA rewrite so React routes work after refresh.
+## 1. Buy / Prepare ECS
 
-## 2. Backend on Alibaba Cloud ECS
+Use Ubuntu 22.04 or 24.04 LTS.
 
-Use Ubuntu 22.04/24.04 LTS. A 2C/4G instance is enough for API-only demos. Add more CPU/RAM if video export with FFmpeg is heavy.
+Suggested minimum:
 
-Install runtime dependencies:
+- Demo: 2 vCPU / 4 GB RAM
+- More video export usage: 4 vCPU / 8 GB RAM
+- Open security group ports: `22`, `80`, `443`
+
+## 2. Install Runtime
+
+SSH into the ECS instance:
+
+```bash
+ssh root@YOUR_ECS_PUBLIC_IP
+```
+
+Install dependencies:
 
 ```bash
 sudo apt update
@@ -42,20 +38,35 @@ sudo apt install -y nodejs
 sudo npm install -g pm2
 ```
 
-Clone and install:
+## 3. Clone And Install
 
 ```bash
-git clone https://github.com/your-org/your-repo.git /opt/neuromedia
-cd /opt/neuromedia/backend
+git clone https://github.com/Sirius-07/neuromedia-ai-video-studio.git /opt/neuromedia
+cd /opt/neuromedia
+git checkout codex/new-user-video-flow-ux
+
+cd backend
 npm ci
+
+cd ../frontend
+npm ci
+npm run build
 ```
 
-Create persistent directories. Several legacy services still write to `backend/uploads`, so keep that path stable and point it at a persistent disk location:
+## 4. Backend Environment
+
+Create persistent directories:
 
 ```bash
 sudo mkdir -p /var/www/neuromedia/uploads
 sudo mkdir -p /var/www/neuromedia/data
+sudo mkdir -p /var/www/neuromedia/frontend
 sudo chown -R $USER:$USER /var/www/neuromedia
+```
+
+Keep legacy upload paths stable:
+
+```bash
 if [ -d /opt/neuromedia/backend/uploads ] && [ ! -L /opt/neuromedia/backend/uploads ]; then
   cp -a /opt/neuromedia/backend/uploads/. /var/www/neuromedia/uploads/ 2>/dev/null || true
   mv /opt/neuromedia/backend/uploads "/opt/neuromedia/backend/uploads.$(date +%s).bak"
@@ -63,101 +74,122 @@ fi
 ln -sfn /var/www/neuromedia/uploads /opt/neuromedia/backend/uploads
 ```
 
-Create `backend/.env` from `backend/.env.example` and fill real values:
+Create `/opt/neuromedia/backend/.env`:
 
 ```env
 NODE_ENV=production
 PORT=4300
-PUBLIC_URL=https://api.example.com
-FRONTEND_URL=https://app.example.com
-CORS_ORIGIN=https://app.example.com
+PUBLIC_URL=http://YOUR_ECS_PUBLIC_IP
+FRONTEND_URL=
+CORS_ORIGIN=
 UPLOADS_DIR=/opt/neuromedia/backend/uploads
 DATABASE_URL=file:/var/www/neuromedia/data/production.db
+
 ENABLE_COMFYUI=false
 ENABLE_TTS=false
-ARK_API_KEY=...
-VOLCENGINE_ACCESS_KEY=...
-VOLCENGINE_SECRET_KEY=...
-TOS_ACCESS_KEY_ID=...
-TOS_SECRET_ACCESS_KEY=...
+
+ARK_API_KEY=your_ark_api_key
+VOLCENGINE_ACCESS_KEY=your_volcengine_access_key
+VOLCENGINE_SECRET_KEY=your_volcengine_secret_key
+
+TOS_ACCESS_KEY_ID=your_tos_access_key_id
+TOS_SECRET_ACCESS_KEY=your_tos_secret_access_key
 TOS_REGION=cn-guangzhou
-TOS_BUCKET=...
+TOS_BUCKET=your_bucket_name
 ```
+
+When you add a domain and HTTPS later, change `PUBLIC_URL` to `https://your-domain.com`.
 
 Initialize the database:
 
 ```bash
+cd /opt/neuromedia/backend
 npx prisma generate
 npx prisma migrate deploy
 ```
 
-If you stay on SQLite and have no tracked migrations yet, create the initial production database once:
+If migration deploy fails on a fresh SQLite file, run this once:
 
 ```bash
 npx prisma db push
 ```
 
-Start with PM2:
+Start backend:
 
 ```bash
 pm2 start src/index.js --name neuromedia-api
 pm2 save
-pm2 startup
 ```
 
-Health check:
+Check it:
 
 ```bash
 curl http://127.0.0.1:4300/health
 ```
 
-Expected feature flags:
+Expected:
 
 ```json
-{
-  "features": {
-    "tts": false,
-    "comfyui": false
-  }
-}
+{"features":{"tts":false,"comfyui":false}}
 ```
 
-## 3. Nginx Reverse Proxy
-
-Create `/etc/nginx/sites-available/neuromedia-api`:
-
-```nginx
-server {
-    listen 80;
-    server_name api.example.com;
-
-    client_max_body_size 100m;
-
-    location / {
-        proxy_pass http://127.0.0.1:4300;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-Enable it:
+## 5. Publish Frontend Files
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/neuromedia-api /etc/nginx/sites-enabled/
+rm -rf /var/www/neuromedia/frontend/*
+cp -a /opt/neuromedia/frontend/dist/. /var/www/neuromedia/frontend/
+```
+
+No `VITE_API_BASE_URL` is needed for same-server deployment. The frontend will call same-origin `/api/...` paths in production.
+
+## 6. Nginx
+
+Copy the provided config:
+
+```bash
+sudo cp /opt/neuromedia/deploy/alicloud-single-server/nginx.conf /etc/nginx/sites-available/neuromedia
+sudo ln -sfn /etc/nginx/sites-available/neuromedia /etc/nginx/sites-enabled/neuromedia
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-Add HTTPS with Certbot or Alibaba Cloud SSL certificates before sharing the app publicly.
+Open:
 
-## 4. Production Notes
+```text
+http://YOUR_ECS_PUBLIC_IP
+```
 
-- For mainland China hosting, complete ICP filing before binding a public website domain to mainland ECS/CDN.
-- Keep `.env`, SQLite databases, uploads, logs, and model weights out of Git.
-- `backend/prisma/migrations/` should be committed for repeatable production database setup.
-- For higher reliability, move from SQLite to Postgres and move generated media from local disk to TOS/CDN.
-- ComfyUI/TTS can be re-enabled later with `ENABLE_COMFYUI=true` or `ENABLE_TTS=true`, but they should run as separate services with their paths and URLs explicitly configured.
+## 7. Optional Domain And HTTPS
+
+For a domain:
+
+1. Point an A record to the ECS public IP.
+2. Replace `server_name _;` in the Nginx config with your domain.
+3. Change backend `PUBLIC_URL` to `https://your-domain.com`.
+4. Reload PM2: `pm2 restart neuromedia-api --update-env`.
+5. Add HTTPS with Certbot or an Alibaba Cloud SSL certificate.
+
+For mainland China ECS, complete ICP filing before binding a public mainland-hosted website domain.
+
+## 8. Quick Update Later
+
+After new code is pushed:
+
+```bash
+cd /opt/neuromedia
+git pull
+
+cd backend
+npm ci
+npx prisma migrate deploy
+pm2 restart neuromedia-api --update-env
+
+cd ../frontend
+npm ci
+npm run build
+rm -rf /var/www/neuromedia/frontend/*
+cp -a dist/. /var/www/neuromedia/frontend/
+
+sudo nginx -t
+sudo systemctl reload nginx
+```

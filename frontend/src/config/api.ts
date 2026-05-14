@@ -1,11 +1,16 @@
-const DEFAULT_API_BASE_URL = 'http://localhost:4300';
+const LOCAL_API_BASE_URL = 'http://localhost:4300';
+const DEFAULT_API_BASE_URL = import.meta.env.DEV ? LOCAL_API_BASE_URL : '';
+
+export function getDefaultApiBaseUrl(isDev = import.meta.env.DEV): string {
+  return isDev ? LOCAL_API_BASE_URL : '';
+}
 
 export function normalizeApiBaseUrl(baseUrl: string | undefined | null): string {
   return (baseUrl || '').trim().replace(/\/+$/, '');
 }
 
 export const API_BASE_URL = normalizeApiBaseUrl(
-  import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL
+  import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL
 );
 
 export function apiUrl(path: string, baseUrl: string = API_BASE_URL): string {
