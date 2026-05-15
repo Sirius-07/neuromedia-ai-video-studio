@@ -79,9 +79,9 @@ const ACTION_META: Record<StoryboardAction["type"], ActionMeta> = {
   bulk_update_shots: {
     label:  "批量修改分镜",
     icon:   Layers,
-    color:  "text-sky-400",
-    border: "border-sky-500/20",
-    bg:     "bg-sky-500/5",
+    color:  "text-cyan-400",
+    border: "border-cyan-500/20",
+    bg:     "bg-cyan-500/5",
   },
   regenerate_shot: {
     label:  "重新生成分镜",
@@ -210,31 +210,37 @@ function DiffRow({
   const label   = FIELD_LABELS[field] ?? field;
   const isEmpty = oldVal === "未填写";
   // 长文本截断阈值
-  const truncate = (s: string, max = 28) =>
+  const truncate = (s: string, max = 72) =>
     s.length > max ? s.slice(0, max) + "…" : s;
 
   return (
-    <div className="flex items-start gap-2 text-[10px] leading-relaxed">
+    <div className="rounded-md border border-white/[0.06] bg-white/[0.025] px-2 py-1.5 text-[10px] leading-relaxed">
       {/* 字段名 */}
-      <span className="w-16 shrink-0 text-neutral-600">{label}</span>
+      <div className="mb-1 flex items-center gap-1.5 text-neutral-500">
+        <span className="shrink-0">{label}</span>
+        <ArrowRight size={10} className="text-neutral-700 shrink-0" />
+        <span className="text-neutral-600">更新</span>
+      </div>
 
       {/* 旧值 */}
-      <span
-        className={`max-w-[80px] truncate shrink-0 ${
-          isEmpty ? "text-neutral-700 italic" : "text-neutral-500 line-through"
-        }`}
-        title={oldVal}
-      >
-        {truncate(oldVal)}
-      </span>
+      <div className="grid gap-1">
+        <span
+          className={`min-w-0 rounded bg-black/20 px-2 py-1 break-words [overflow-wrap:anywhere] ${
+            isEmpty ? "text-neutral-700 italic" : "text-neutral-500 line-through"
+          }`}
+          title={oldVal}
+        >
+          {truncate(oldVal)}
+        </span>
 
-      {/* 箭头 */}
-      <ArrowRight size={10} className="text-neutral-700 mt-0.5 shrink-0" />
-
-      {/* 新值 */}
-      <span className="text-neutral-200 break-all" title={newVal}>
-        {truncate(newVal, 48)}
-      </span>
+        {/* 新值 */}
+        <span
+          className="min-w-0 rounded border border-cyan-500/15 bg-cyan-500/[0.06] px-2 py-1 text-neutral-100 break-words [overflow-wrap:anywhere]"
+          title={newVal}
+        >
+          {truncate(newVal)}
+        </span>
+      </div>
     </div>
   );
 }

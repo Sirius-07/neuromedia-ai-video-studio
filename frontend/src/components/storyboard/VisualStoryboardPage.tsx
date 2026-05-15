@@ -20,6 +20,11 @@ import { addStyleToPrompt } from '../../utils/stylePrompts';
 import { buildCinematicPrompt } from './promptUtils';
 import { chatWithAI, type ChatMessage as AiChatMessage, type AiChange } from '../../api/scriptEditApi';
 import StoryboardDirectorPanel from './assistant/StoryboardDirectorPanel';
+import type { StoryboardAction } from './assistant/types';
+import type {
+  StoryboardAssistantActionPreview,
+  StoryboardAssistantActionsEvent,
+} from './assistant/useStoryboardAssistant';
 import { shouldShowAdvancedSceneParameters } from './advancedSceneExpansion';
 import {
   buildCreationSettings,
@@ -146,6 +151,165 @@ const getStoryboardPreviewText = (scene: Scene): string => {
     .filter(Boolean);
   const preview = (parts.length > 0 ? parts.slice(0, 2).join('。') : source).replace(/。+/g, '。');
   return preview.length > 92 ? `${preview.slice(0, 92)}...` : preview;
+};
+
+type AgentFeedbackTone = 'preview' | 'applied';
+type AgentFeedbackField = 'visual' | 'narration' | 'duration' | 'asset' | 'motion' | 'generation';
+type AgentFieldMap = Record<number, AgentFeedbackField[]>;
+
+interface AgentCardFeedback {
+  shotIds: number[];
+  fieldMap: AgentFieldMap;
+  summary?: string;
+  label?: string;
+  isBatch?: boolean;
+}
+
+const AGENT_APPLIED_VISIBLE_MS = 3200;
+
+const AGENT_FIELD_LABELS: Record<AgentFeedbackField, string> = {
+  visual: '画面',
+  narration: '旁白',
+  duration: '时长',
+  asset: '素材',
+  motion: '运动',
+  generation: '生成',
+};
+
+const normalizeAgentField = (field: string): AgentFeedbackField => {
+  if (['narration', 'dialogue', 'voiceoverText', 'subtitle'].includes(field)) return 'narration';
+  if (['duration', 'clipStartTime', 'clipEndTime'].includes(field)) return 'duration';
+  if (['assetUrl', 'footageStatus', 'type', 'referenceAssetPath', 'uploadedAssetId'].includes(field)) return 'asset';
+  if (['motionPrompt', 'cameraMovement', 'cameraStrength'].includes(field)) return 'motion';
+  if (['generationStatus', 'videoUrl', 'selectedImageIndex', 'generatedVideoUrl'].includes(field)) return 'generation';
+  return 'visual';
+};
+
+const mergeAgentField = (fieldMap: AgentFieldMap, shotId: number, field: AgentFeedbackField) => {
+  fieldMap[shotId] = Array.from(new Set([...(fieldMap[shotId] || []), field]));
+};
+
+const buildAgentFeedbackFromActions = (
+  actions: StoryboardAction[] | undefined,
+  scenes: Scene[]
+): AgentCardFeedback | null => {
+  if (!actions?.length) return null;
+
+  const shotIds = new Set<number>();
+  const fieldMap: AgentFieldMap = {};
+  const addShot = (shotId: unknown, fields: AgentFeedbackField[] = ['visual']) => {
+    if (typeof shotId !== 'number') return;
+    shotIds.add(shotId);
+    fields.forEach((field) => mergeAgentField(fieldMap, shotId, field));
+  };
+
+  actions.forEach((action) => {
+    if (action.type === 'update_shot_field') {
+      const fields = Object.keys(action.patch || {})
+        .filter((field) => field !== 'mode')
+        .map(normalizeAgentField);
+      addShot(action.shotId, fields.length > 0 ? fields : ['visual']);
+      return;
+    }
+
+    if (action.type === 'bulk_update_shots') {
+      (action.items || []).forEach((item) => {
+        const fields = Object.keys(item.patch || {})
+          .filter((field) => field !== 'mode')
+          .map(normalizeAgentField);
+        addShot(item.shotId, fields.length > 0 ? fields : ['visual']);
+      });
+      return;
+    }
+
+    if (action.type === 'regenerate_shot') {
+      addShot(action.shotId, ['generation']);
+      return;
+    }
+
+    if (action.type === 'regenerate_storyboard') {
+      scenes.forEach((scene) => addShot(scene.id, ['generation']));
+    }
+  });
+
+  if (shotIds.size === 0) return null;
+
+  return {
+    shotIds: Array.from(shotIds),
+    fieldMap,
+    isBatch: shotIds.size > 1,
+  };
+};
+
+const buildAgentFeedbackFromAssistantEvent = ({
+  shotIds,
+  fields,
+  actions,
+  scenes,
+  summary,
+  label,
+}: {
+  shotIds: number[];
+  fields: string[];
+  actions?: StoryboardAction[];
+  scenes: Scene[];
+  summary?: string;
+  label?: string;
+}): AgentCardFeedback | null => {
+  const actionFeedback = buildAgentFeedbackFromActions(actions, scenes);
+  const normalizedShotIds = shotIds.length > 0
+    ? shotIds
+    : actionFeedback?.shotIds ?? [];
+
+  if (normalizedShotIds.length === 0) return null;
+
+  const fieldMap: AgentFieldMap = {};
+  Object.entries(actionFeedback?.fieldMap ?? {}).forEach(([shotId, actionFields]) => {
+    fieldMap[Number(shotId)] = [...(actionFields as AgentFeedbackField[])];
+  });
+
+  const normalizedFields = Array.from(new Set(fields.map(normalizeAgentField)));
+  if (Object.keys(fieldMap).length === 0 && normalizedFields.length > 0) {
+    normalizedShotIds.forEach((shotId) => {
+      normalizedFields.forEach((field) => mergeAgentField(fieldMap, shotId, field));
+    });
+  }
+
+  if (Object.keys(fieldMap).length === 0) {
+    normalizedShotIds.forEach((shotId) => mergeAgentField(fieldMap, shotId, 'visual'));
+  }
+
+  return {
+    shotIds: normalizedShotIds,
+    fieldMap,
+    summary,
+    label,
+    isBatch: normalizedShotIds.length > 1,
+  };
+};
+
+const hasAgentField = (fieldMap: AgentFieldMap | undefined, sceneId: number, field: AgentFeedbackField) =>
+  !!fieldMap?.[sceneId]?.includes(field);
+
+const AgentFieldMark = ({
+  active,
+  tone,
+  label,
+}: {
+  active: boolean;
+  tone: AgentFeedbackTone;
+  label: string;
+}) => {
+  if (!active) return null;
+  const classes = tone === 'preview'
+    ? 'border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-200'
+    : 'border-cyan-400/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-200';
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${classes}`}>
+      <span className="h-1 w-1 rounded-full bg-current" />
+      {label}
+    </span>
+  );
 };
 
 const getUploadedAssetName = (asset: any, index: number): string => {
@@ -941,6 +1105,9 @@ export const VisualStoryboardPage = () => {
   const [workbenchArtStyle, setWorkbenchArtStyle] = useState(artStyleFromScript || DEFAULT_CREATION_ART_STYLE);
   const [isQuickAutomationPaused, setIsQuickAutomationPaused] = useState(false);
   const quickAutomationStartedRef = useRef(false);
+  const [agentPreview, setAgentPreview] = useState<AgentCardFeedback | null>(null);
+  const [agentApplied, setAgentApplied] = useState<AgentCardFeedback | null>(null);
+  const agentAppliedTimerRef = useRef<number | null>(null);
 
   // ============================================================
   // 初始化数据（优先级处理）
@@ -2107,6 +2274,70 @@ export const VisualStoryboardPage = () => {
   const latestScenesRef = useRef<Scene[]>(scenes);
   useEffect(() => { latestScenesRef.current = scenes; }, [scenes]);
 
+  const clearAgentAppliedSoon = useCallback(() => {
+    if (agentAppliedTimerRef.current !== null) {
+      window.clearTimeout(agentAppliedTimerRef.current);
+    }
+    agentAppliedTimerRef.current = window.setTimeout(() => {
+      setAgentApplied(null);
+      agentAppliedTimerRef.current = null;
+    }, AGENT_APPLIED_VISIBLE_MS);
+  }, []);
+
+  const scrollToAgentFeedback = useCallback((feedback: AgentCardFeedback | null) => {
+    const firstShotId = feedback?.shotIds?.[0];
+    if (typeof firstShotId !== 'number') return;
+    window.setTimeout(() => {
+      document.getElementById(`scene-${firstShotId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 80);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (agentAppliedTimerRef.current !== null) {
+        window.clearTimeout(agentAppliedTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleDirectorPreviewActionsChange = useCallback((preview: StoryboardAssistantActionPreview | null) => {
+    if (!preview) {
+      setAgentPreview(null);
+      return;
+    }
+
+    const feedback = buildAgentFeedbackFromAssistantEvent({
+      shotIds: preview.affectedShotIds,
+      fields: preview.fields,
+      actions: preview.actions,
+      scenes: latestScenesRef.current,
+      summary: preview.actionIntent,
+      label: 'AI 待确认',
+    });
+    setAgentPreview(feedback);
+  }, []);
+
+  const handleDirectorActionsApplied = useCallback((event: StoryboardAssistantActionsEvent) => {
+    setAgentPreview(null);
+
+    const feedback = buildAgentFeedbackFromAssistantEvent({
+      shotIds: event.affectedShotIds,
+      fields: event.fields,
+      actions: event.appliedActions,
+      scenes: event.type === 'undone' ? event.restoredScenes : event.nextScenes,
+      summary: event.actionIntent,
+      label: event.type === 'undone' ? 'AI 已恢复' : 'AI 已更新',
+    });
+    if (!feedback) return;
+
+    setAgentApplied(feedback);
+    scrollToAgentFeedback(feedback);
+    clearAgentAppliedSoon();
+  }, [clearAgentAppliedSoon, scrollToAgentFeedback]);
+
   /**
    * handleAutoFill 定义在本组件后段，通过 ref 桥接避免前向引用错误。
    * handleAutoFillRef.current 在 handleAutoFill 定义后立即同步赋值。
@@ -2129,8 +2360,18 @@ export const VisualStoryboardPage = () => {
   const handleDirectorRegenerateShot = useCallback((shotId: number) => {
     const scene = latestScenesRef.current.find(s => s.id === shotId);
     if (!scene) return;
+    const feedback: AgentCardFeedback = {
+      shotIds: [shotId],
+      fieldMap: { [shotId]: ['generation'] },
+      label: 'AI 触发生成',
+      isBatch: false,
+    };
+    setAgentPreview(null);
+    setAgentApplied(feedback);
+    scrollToAgentFeedback(feedback);
+    clearAgentAppliedSoon();
     handleAutoFillRef.current(scene);
-  }, []);
+  }, [clearAgentAppliedSoon, scrollToAgentFeedback]);
 
   /**
    * AI Director 触发全局重新生成时的回调。
@@ -2888,6 +3129,14 @@ export const VisualStoryboardPage = () => {
           {/* 分镜卡片网格 */}
           {!isGeneratingScript && !generateError && (
             <div className="nm-storyboard-scroll-panel flex-1 overflow-y-auto overflow-x-hidden px-4 pb-32 pt-2 sm:px-6 lg:px-8" id="storyboard-scroll-container">
+              {agentPreview && agentPreview.shotIds.length > 1 && (
+                <div className="sticky top-0 z-20 mb-3 flex items-center justify-between gap-3 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 backdrop-blur-md dark:text-amber-200">
+                  <span>AI 待确认：将影响 {agentPreview.shotIds.length} 个分镜</span>
+                  <span className="font-mono text-[10px] opacity-80">
+                    {agentPreview.summary || `#${agentPreview.shotIds.join(', #')}`}
+                  </span>
+                </div>
+              )}
               <div className="nm-storyboard-grid grid min-w-0 grid-cols-1 items-start gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {scenes.map((scene, index) => {
                   const displayUrl = scene.assetUrl ? resolveLocalAssetUrl(scene.assetUrl) : scene.videoUrl;
@@ -2912,17 +3161,29 @@ export const VisualStoryboardPage = () => {
                       : 'border-neutral-300 bg-neutral-500/10 text-neutral-500 dark:border-white/10 dark:text-neutral-400';
                   const readableSummary = getStoryboardPreviewText(scene);
                   const narrationText = cleanStoryboardText(scene.narration || scene.dialogue || '');
+                  const isAgentPreviewed = !!agentPreview?.shotIds.includes(scene.id);
+                  const isAgentApplied = !!agentApplied?.shotIds.includes(scene.id);
+                  const agentTone: AgentFeedbackTone = isAgentPreviewed ? 'preview' : 'applied';
+                  const agentFieldMap = isAgentPreviewed ? agentPreview?.fieldMap : agentApplied?.fieldMap;
+                  const agentLabel = isAgentPreviewed
+                    ? agentPreview?.label || 'AI 待确认'
+                    : agentApplied?.label || 'AI 已更新';
 
                   return (
                     <div
                       key={scene.id}
+                      id={`scene-${scene.id}`}
                       draggable
                       onDragStart={(e) => handleShotDragStart(e, index)}
                       onDragOver={handleShotDragOver}
                       onDrop={(e) => handleShotDrop(e, index)}
                       onClick={() => setSelectedSceneId(scene.id)}
                       className={`nm-storyboard-card bg-white/40 dark:bg-black/40 backdrop-blur-sm border ${
-                        isSelected
+                        isAgentPreviewed
+                          ? 'border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.18)] ring-1 ring-amber-400/30'
+                          : isAgentApplied
+                            ? 'border-cyan-400 shadow-[0_0_22px_rgba(34,211,238,0.18)] ring-1 ring-cyan-400/30'
+                            : isSelected
                           ? 'nm-storyboard-card-selected border-cyan-500 shadow-[0_0_20px_rgba(34,211,238,0.15)]'
                           : 'border-neutral-200 dark:border-white/10'
                       } rounded-xl overflow-hidden flex flex-col group relative transition-all duration-300 hover:border-neutral-300 dark:hover:border-white/20 hover:bg-white/60 dark:hover:bg-black/60 cursor-pointer`}
@@ -2990,6 +3251,16 @@ export const VisualStoryboardPage = () => {
                           分镜 {index + 1}
                         </div>
 
+                        {(isAgentPreviewed || isAgentApplied) && (
+                          <div className={`absolute left-2 top-9 z-20 rounded-md border px-2 py-1 text-[10px] font-medium backdrop-blur-md ${
+                            isAgentPreviewed
+                              ? 'border-amber-400/40 bg-amber-500/15 text-amber-800 dark:text-amber-200'
+                              : 'border-cyan-400/40 bg-cyan-500/15 text-cyan-800 dark:text-cyan-200'
+                          }`}>
+                            {agentLabel}
+                          </div>
+                        )}
+
                         <div className={`absolute bottom-2 left-2 z-10 max-w-[72%] truncate rounded-md border px-2 py-1 text-[10px] font-medium backdrop-blur-md ${sourceTone}`}>
                           {sourceLabel}
                         </div>
@@ -3021,8 +3292,15 @@ export const VisualStoryboardPage = () => {
 
                       {/* 内容区域 */}
                       <div className="nm-storyboard-card-content p-3 flex-1 flex flex-col gap-3">
-                        <div className="rounded-lg border border-neutral-200 bg-white/60 p-2.5 dark:border-white/10 dark:bg-white/[0.04]">
+                        <div className={`rounded-lg border p-2.5 ${
+                          hasAgentField(agentFieldMap, scene.id, 'visual')
+                            ? agentTone === 'preview'
+                              ? 'border-amber-400/30 bg-amber-500/10'
+                              : 'border-cyan-400/30 bg-cyan-500/10'
+                            : 'border-neutral-200 bg-white/60 dark:border-white/10 dark:bg-white/[0.04]'
+                        }`}>
                           <div className="mb-1.5 flex items-center justify-between gap-2">
+                            <AgentFieldMark active={hasAgentField(agentFieldMap, scene.id, 'visual')} tone={agentTone} label={AGENT_FIELD_LABELS.visual} />
                             <div className="text-[10px] font-semibold tracking-[0.08em] text-cyan-600 dark:text-cyan-300">镜头重点</div>
                           </div>
                           <p className="text-[12px] leading-relaxed text-neutral-800 dark:text-neutral-100" style={clampTextStyle(3)}>
@@ -3030,8 +3308,15 @@ export const VisualStoryboardPage = () => {
                           </p>
                         </div>
 
-                        <div className="rounded-lg border border-neutral-200 bg-neutral-50/80 p-2 dark:border-white/5 dark:bg-white/[0.03]">
+                        <div className={`rounded-lg border p-2 ${
+                          hasAgentField(agentFieldMap, scene.id, 'narration')
+                            ? agentTone === 'preview'
+                              ? 'border-amber-400/30 bg-amber-500/10'
+                              : 'border-cyan-400/30 bg-cyan-500/10'
+                            : 'border-neutral-200 bg-neutral-50/80 dark:border-white/5 dark:bg-white/[0.03]'
+                        }`}>
                           <div className="mb-1 text-[10px] font-medium text-neutral-500">旁白 / 字幕</div>
+                          <AgentFieldMark active={hasAgentField(agentFieldMap, scene.id, 'narration')} tone={agentTone} label={AGENT_FIELD_LABELS.narration} />
                           <p className="text-[11px] leading-relaxed text-neutral-700 dark:text-neutral-300" style={clampTextStyle(2)}>
                             {narrationText || '这一镜暂未设置旁白'}
                           </p>
@@ -3040,6 +3325,7 @@ export const VisualStoryboardPage = () => {
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <div className="text-[10px] font-medium text-neutral-500 mb-1">时长</div>
+                            <AgentFieldMark active={hasAgentField(agentFieldMap, scene.id, 'duration')} tone={agentTone} label={AGENT_FIELD_LABELS.duration} />
                             <EditableCell
                               value={String(scene.duration || '5s')}
                               onChange={(v) => updateScene(scene.id, { duration: v })}
@@ -3048,6 +3334,11 @@ export const VisualStoryboardPage = () => {
                           </div>
                           <div>
                             <div className="text-[10px] font-medium text-neutral-500 mb-1">素材引用</div>
+                            <AgentFieldMark
+                              active={hasAgentField(agentFieldMap, scene.id, 'asset') || hasAgentField(agentFieldMap, scene.id, 'generation')}
+                              tone={agentTone}
+                              label={hasAgentField(agentFieldMap, scene.id, 'generation') ? AGENT_FIELD_LABELS.generation : AGENT_FIELD_LABELS.asset}
+                            />
                             <select
                               value={(savedUploadedAssets || []).some((asset: any) => (asset.file_path || asset.url) === scene.assetUrl) ? scene.assetUrl || '' : ''}
                               onChange={(e) => {
@@ -3263,6 +3554,8 @@ export const VisualStoryboardPage = () => {
             onScenesChange={handleDirectorScenesChange}
             onRegenerateShot={handleDirectorRegenerateShot}
             onRegenerateAll={handleDirectorRegenerateAll}
+            onPreviewActionsChange={handleDirectorPreviewActionsChange}
+            onActionsApplied={handleDirectorActionsApplied}
             className="nm-day-sidebar w-full h-full"
           />
         </motion.div>

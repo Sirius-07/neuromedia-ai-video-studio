@@ -24,19 +24,21 @@ import {
   Image as ImageIcon,
   Video,
   Gauge,
-  Target,
   WandSparkles,
   MessagesSquare,
 } from "lucide-react";
 
 import type { Scene }               from "../types";
 import type { StoryboardMode, DirectorMessage } from "./types";
-import { useStoryboardAssistant }    from "./useStoryboardAssistant";
+import {
+  useStoryboardAssistant,
+  type StoryboardAssistantActionPreview,
+  type StoryboardAssistantActionsEvent,
+}                                    from "./useStoryboardAssistant";
 import StoryboardActionPreview       from "./StoryboardActionPreview";
 import {
   deriveStoryboardAgentState,
   type StoryboardAgentInsight,
-  type StoryboardAgentMetric,
 }                                    from "./agentIntelligence";
 
 // ─────────────────────────────────────────────────────────────
@@ -74,17 +76,30 @@ const SUGGESTIONS = {
 // Sub-component：TypingIndicator
 // ─────────────────────────────────────────────────────────────
 
+const AGENT_TONES = {
+  neutral: {
+    chip: "bg-white/[0.04] hover:bg-white/[0.07] border-white/[0.08] hover:border-white/[0.14] text-neutral-400 hover:text-neutral-200",
+  },
+  active: {
+    chip: "bg-cyan-500/10 hover:bg-cyan-500/[0.16] border-cyan-500/25 hover:border-cyan-500/[0.45] text-cyan-200 hover:text-cyan-100",
+  },
+  danger: {
+    avatar: "bg-red-500/20 border border-red-500/30",
+    bubble: "bg-red-500/10 border border-red-500/20 text-red-300 rounded-tl-sm",
+  },
+} as const;
+
 function TypingIndicator() {
   return (
     <div className="flex items-center gap-2.5 px-1 py-1">
-      <div className="w-6 h-6 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0">
-        <Film size={11} className="text-violet-400" />
+      <div className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center justify-center shrink-0">
+        <Film size={11} className="text-amber-300" />
       </div>
       <div className="flex items-center gap-1">
         {[0, 1, 2].map((i) => (
           <motion.span
             key={i}
-            className="w-1.5 h-1.5 rounded-full bg-violet-400/60"
+            className="w-1.5 h-1.5 rounded-full bg-amber-300/70"
             animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
             transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2, ease: "easeInOut" }}
           />
@@ -101,34 +116,19 @@ function TypingIndicator() {
 
 function EmptyState({
   insight,
-  onSuggest,
 }: {
   insight:         StoryboardAgentInsight;
-  onSuggest:       (text: string) => void;
 }) {
-  const starters = insight.quickPrompts.slice(0, 3);
-
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-5 px-6 text-center">
-      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 border border-violet-500/20 flex items-center justify-center">
-        <Film size={22} className="text-violet-400" />
+    <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+      <div className="w-11 h-11 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+        <Film size={20} className="text-cyan-300" />
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <p className="text-sm font-medium text-neutral-300">{insight.emptyTitle}</p>
-        <p className="text-xs text-neutral-500 leading-relaxed">
+        <p className="text-xs text-neutral-600 leading-relaxed">
           {insight.emptyDescription}
         </p>
-      </div>
-      <div className="w-full space-y-1.5">
-        {starters.map((s) => (
-          <button
-            key={s}
-            onClick={() => onSuggest(s)}
-            className="w-full text-left text-xs px-3 py-2.5 rounded-lg bg-white/[0.03] hover:bg-violet-500/10 border border-white/[0.06] hover:border-violet-500/25 text-neutral-400 hover:text-violet-300 transition-all duration-200"
-          >
-            {s}
-          </button>
-        ))}
       </div>
     </div>
   );
@@ -158,29 +158,13 @@ function SuggestionChips({
           disabled={disabled}
           className={`text-[11px] px-2.5 py-1 rounded-full border transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${
             variant === "choice"
-              ? "bg-cyan-500/10 hover:bg-cyan-500/[0.18] border-cyan-500/25 hover:border-cyan-500/[0.45] text-cyan-200 hover:text-cyan-100"
-              : "bg-white/[0.04] hover:bg-violet-500/10 border-white/[0.08] hover:border-violet-500/30 text-neutral-400 hover:text-violet-300"
+              ? AGENT_TONES.active.chip
+              : AGENT_TONES.neutral.chip
           }`}
         >
           {s}
         </button>
       ))}
-    </div>
-  );
-}
-
-function AgentMetricPill({ metric }: { metric: StoryboardAgentMetric }) {
-  const toneClass =
-    metric.tone === "good"
-      ? "border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-300"
-      : metric.tone === "warn"
-        ? "border-amber-500/20 bg-amber-500/[0.08] text-amber-300"
-        : "border-white/[0.08] bg-white/[0.04] text-neutral-400";
-
-  return (
-    <div className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 ${toneClass}`}>
-      <span className="text-[10px]">{metric.label}</span>
-      <span className="font-mono text-[10px] font-semibold">{metric.value}</span>
     </div>
   );
 }
@@ -196,28 +180,19 @@ function AgentContextBrief({
 }) {
   return (
     <div className="px-4 py-3 border-b border-white/[0.04] shrink-0 space-y-2.5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-500">
-            <Target size={11} />
-            <span>{insight.focusLabel}</span>
-            <span className="text-neutral-700">/</span>
-            <span>{insight.modeLabel}</span>
-          </div>
-          <p className="line-clamp-2 text-[11px] leading-relaxed text-neutral-400">
-            {insight.primaryNeed}
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex items-center gap-2 text-[11px] text-neutral-500">
+          <span className="truncate">{insight.focusLabel}</span>
+          <span className="h-1 w-1 rounded-full bg-neutral-700" />
+          <span className="shrink-0">{insight.modeLabel}</span>
         </div>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-300">
-          <Gauge size={15} />
-          <span className="ml-0.5 text-[10px] font-semibold">{insight.completionPercent}</span>
+        <div
+          className="flex h-7 shrink-0 items-center gap-1 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-2 text-cyan-300"
+          title={insight.primaryNeed}
+        >
+          <Gauge size={12} />
+          <span className="font-mono text-[10px] font-semibold">{insight.completionPercent}</span>
         </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-1.5">
-        {insight.metrics.map((metric) => (
-          <AgentMetricPill key={metric.label} metric={metric} />
-        ))}
       </div>
 
       <div className="grid grid-cols-2 gap-1.5">
@@ -234,7 +209,7 @@ function AgentContextBrief({
           type="button"
           disabled={disabled}
           onClick={() => onSuggest(insight.optionPrompt)}
-          className="flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 text-[11px] font-medium text-neutral-400 transition-colors hover:border-violet-500/25 hover:bg-violet-500/10 hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 text-[11px] font-medium text-neutral-400 transition-colors hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <MessagesSquare size={12} />
           先给选项
@@ -291,21 +266,21 @@ function MessageBubble({
         {isAssistant && (
           <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
             isError
-              ? "bg-red-500/20 border border-red-500/30"
-              : "bg-violet-500/20 border border-violet-500/30"
+              ? AGENT_TONES.danger.avatar
+              : "bg-cyan-500/10 border border-cyan-500/25"
           }`}>
             {isError
               ? <AlertCircle size={11} className="text-red-400" />
-              : <Film       size={11} className="text-violet-400" />}
+              : <Film       size={11} className="text-cyan-300" />}
           </div>
         )}
 
         <div className={`px-3 py-2.5 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap ${
           isError
-            ? "bg-red-500/10 border border-red-500/20 text-red-300 rounded-tl-sm"
+            ? AGENT_TONES.danger.bubble
             : isAssistant
             ? "bg-white/[0.05] border border-white/[0.07] text-neutral-300 rounded-tl-sm"
-            : "bg-violet-500/15 border border-violet-500/25 text-violet-100 rounded-tr-sm"
+            : "bg-cyan-500/10 border border-cyan-500/20 text-cyan-100 rounded-tr-sm"
         }`}>
           {renderContent(message.content)}
         </div>
@@ -359,9 +334,9 @@ function ShotIndicator({
         transition={{ duration: 0.15 }}
         className="flex items-center gap-1.5 text-[11px]"
       >
-        <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-        <Crosshair size={10} className="text-violet-400" />
-        <span className="text-violet-400">{label} 已选中</span>
+        <div className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />
+        <Crosshair size={10} className="text-cyan-300" />
+        <span className="text-cyan-300">{label} 已选中</span>
       </motion.div>
     </AnimatePresence>
   );
@@ -383,6 +358,8 @@ export interface StoryboardDirectorPanelProps {
   lastActionSummary?: string;
   /** 项目 ID（用于后端日志追踪，可选） */
   projectId?:         string;
+  onPreviewActionsChange?: (preview: StoryboardAssistantActionPreview | null) => void;
+  onActionsApplied?:       (event: StoryboardAssistantActionsEvent) => void;
   className?:         string;
 }
 
@@ -400,6 +377,8 @@ export default function StoryboardDirectorPanel({
   onRegenerateAll,
   lastActionSummary,
   projectId,
+  onPreviewActionsChange,
+  onActionsApplied,
   className = "",
 }: StoryboardDirectorPanelProps) {
 
@@ -425,6 +404,8 @@ export default function StoryboardDirectorPanel({
     onRegenerateAll,
     projectId,
     lastActionSummary,
+    onPreviewActionsChange,
+    onActionsApplied,
   });
 
   // ── 局部 UI 状态 ──────────────────────────────────────────
@@ -445,12 +426,6 @@ export default function StoryboardDirectorPanel({
   );
 
   // 当前活跃建议列表
-  const activeSuggestions = hasSelectedShot
-    ? agentInsight.quickPrompts
-    : agentInsight.quickPrompts.length > 0
-      ? agentInsight.quickPrompts
-      : SUGGESTIONS[mode].global;
-
   // ── 自动滚动至底部 ────────────────────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -508,8 +483,8 @@ export default function StoryboardDirectorPanel({
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 border border-violet-500/20 flex items-center justify-center">
-            <Film size={13} className="text-violet-400" />
+          <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+            <Film size={13} className="text-cyan-300" />
           </div>
           <span className="text-[11px] font-semibold tracking-[0.15em] text-neutral-300 uppercase">
             AI 分镜助手
@@ -518,11 +493,7 @@ export default function StoryboardDirectorPanel({
 
         <div className="flex items-center gap-2">
           {/* 模式徽章（image / video） */}
-          <div className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
-            mode === "image"
-              ? "bg-sky-500/10 border-sky-500/20 text-sky-400"
-              : "bg-amber-500/10 border-amber-500/20 text-amber-400"
-          }`}>
+          <div className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border bg-white/[0.04] border-white/[0.08] text-neutral-400">
             {mode === "image"
               ? <><ImageIcon size={9} /><span className="ml-0.5">图片</span></>
               : <><Video     size={9} /><span className="ml-0.5">视频</span></>
@@ -543,10 +514,6 @@ export default function StoryboardDirectorPanel({
       </div>
 
       {/* ── Shot / Global 指示条 ── */}
-      <div className="px-4 py-2 border-b border-white/[0.04] shrink-0 min-h-[32px] flex items-center">
-        <ShotIndicator scenes={scenes} selectedShotId={selectedShotId} />
-      </div>
-
       <AgentContextBrief
         insight={agentInsight}
         disabled={isChoiceDisabled}
@@ -554,14 +521,6 @@ export default function StoryboardDirectorPanel({
       />
 
       {/* ── 快捷建议 chips ── */}
-      <div className="px-4 pt-3 pb-2.5 border-b border-white/[0.04] shrink-0">
-        <SuggestionChips
-          suggestions={activeSuggestions.slice(0, 4)}
-          disabled={isChoiceDisabled}
-          onSelect={handleSuggest}
-        />
-      </div>
-
       {/* ── 消息列表 ── */}
       <div
         ref={scrollRef}
@@ -575,7 +534,6 @@ export default function StoryboardDirectorPanel({
         {messages.length === 0 && actionStatus === "idle" ? (
           <EmptyState
             insight={agentInsight}
-            onSuggest={handleSuggest}
           />
         ) : (
           <AnimatePresence initial={false}>
@@ -617,7 +575,7 @@ export default function StoryboardDirectorPanel({
 
         {/* 应用中状态 */}
         {actionStatus === "applying" && (
-          <div className="flex items-center gap-2 text-xs text-violet-400/80 px-1">
+          <div className="flex items-center gap-2 text-xs text-amber-300/80 px-1">
             <Loader2 size={13} className="animate-spin" />
             正在应用修改...
           </div>
@@ -684,7 +642,7 @@ export default function StoryboardDirectorPanel({
           )}
         </AnimatePresence>
 
-        <div className="flex items-end gap-2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 focus-within:border-violet-500/40 focus-within:bg-violet-500/[0.03] transition-all duration-200">
+        <div className="flex items-end gap-2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 focus-within:border-cyan-500/35 focus-within:bg-cyan-500/[0.03] transition-all duration-200">
           <textarea
             ref={inputRef}
             value={inputDraft}
@@ -709,8 +667,8 @@ export default function StoryboardDirectorPanel({
             disabled={!inputDraft.trim() || isLoading || isAwaitingConfirm}
             className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mb-0.5 transition-all duration-150
               disabled:opacity-30 disabled:cursor-not-allowed active:scale-95
-              bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50
-              text-violet-400 hover:text-violet-300"
+              bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/25 hover:border-cyan-500/45
+              text-cyan-300 hover:text-cyan-200"
           >
             {isLoading
               ? <Loader2 size={13} className="animate-spin" />
