@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutTemplate, Download, Loader2, GripVertical, AlertTriangle, Sparkles, CheckCircle2, FileVideo, UploadCloud, BrainCircuit, Music, ImagePlus, Video, Plus, Copy, Trash2, Image as ImageIcon, Film, Clock, GripHorizontal, Undo2, Send, RefreshCw, Bot, ChevronLeft, ChevronRight, Lightbulb, Square, Play, MoreHorizontal, SlidersHorizontal } from 'lucide-react';
+import { LayoutTemplate, Download, Loader2, GripVertical, AlertTriangle, Sparkles, CheckCircle2, FileVideo, UploadCloud, BrainCircuit, Music, ImagePlus, Video, Plus, Copy, Trash2, Image as ImageIcon, Film, Clock, GripHorizontal, Undo2, Send, RefreshCw, Bot, ChevronLeft, ChevronRight, Lightbulb, Square, Play, MoreHorizontal, SlidersHorizontal, FileText, PackageCheck } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Inspector } from './Inspector';
 import { SceneCard } from './SceneCard';
@@ -705,6 +705,185 @@ const BatchGenerationResultModal = ({
   );
 };
 
+const EXPORT_STAGE_LABELS: Record<videoExportApi.ExportProgress['stage'], string> = {
+  downloading: '正在下载和校验视频片段',
+  concatenating: '正在按分镜顺序拼接粗剪视频',
+  completed: '导出完成',
+  error: '导出失败',
+};
+
+const ExportPackageDialog = ({
+  isOpen,
+  isExporting,
+  progress,
+  result,
+  error,
+  sceneCount,
+  exportableVideoCount,
+  totalDurationSeconds,
+  onClose,
+  onStartExport,
+  onDownloadVideo,
+  onDownloadStoryboardTable,
+}: {
+  isOpen: boolean;
+  isExporting: boolean;
+  progress: videoExportApi.ExportProgress | null;
+  result: videoExportApi.ExportResult | null;
+  error: string | null;
+  sceneCount: number;
+  exportableVideoCount: number;
+  totalDurationSeconds: number;
+  onClose: () => void;
+  onStartExport: () => void;
+  onDownloadVideo: () => void;
+  onDownloadStoryboardTable: () => void;
+}) => {
+  if (!isOpen) return null;
+
+  const progressPercent = progress?.total
+    ? Math.round(((progress.current || 0) / progress.total) * 100)
+    : isExporting ? 18 : result ? 100 : 0;
+  const progressLabel = progress?.message || (progress ? EXPORT_STAGE_LABELS[progress.stage] : '准备导出交付包');
+  const canExportVideo = exportableVideoCount > 0 && !isExporting;
+  const durationLabel = totalDurationSeconds > 0 ? `约 ${totalDurationSeconds}s` : '待补充';
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={() => {
+        if (!isExporting) onClose();
+      }}
+    >
+      <div
+        className="w-full max-w-2xl overflow-hidden rounded-2xl border border-cyan-500/25 bg-white shadow-2xl dark:border-cyan-400/20 dark:bg-[#101014]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-neutral-200 bg-cyan-500/10 px-5 py-4 dark:border-white/10 dark:bg-cyan-400/10">
+          <div className="flex min-w-0 gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500 text-white shadow-[0_12px_30px_rgba(6,182,212,0.25)]">
+              <PackageCheck size={22} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold text-neutral-950 dark:text-white">导出交付包</h3>
+              <p className="mt-1 text-xs leading-5 text-neutral-600 dark:text-neutral-300">
+                结果固定为结构化分镜表和粗剪视频。表格包含全部分镜，视频只拼接已生成或已上传的视频片段。
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isExporting}
+            className="rounded-lg px-2 py-1 text-lg leading-none text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/10 dark:hover:text-white"
+            aria-label="关闭导出窗口"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-white/5">
+              <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
+                <FileText size={16} className="text-cyan-600 dark:text-cyan-300" />
+                结构化分镜表 CSV
+              </div>
+              <p className="mt-2 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
+                镜号、时长、画面内容、旁白/字幕、图片提示词、视频运动提示词、素材来源、制作状态和备注。
+              </p>
+            </div>
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-white/5">
+              <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
+                <FileVideo size={16} className="text-cyan-600 dark:text-cyan-300" />
+                粗剪视频 MP4
+              </div>
+              <p className="mt-2 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
+                按当前分镜顺序拼接 {exportableVideoCount} 个可用视频片段，未生成视频的分镜不会进入粗剪。
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-2 rounded-xl border border-neutral-200 bg-white p-3 text-xs text-neutral-600 dark:border-white/10 dark:bg-black/20 dark:text-neutral-300 sm:grid-cols-3">
+            <div>
+              <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">Shots</span>
+              <strong className="mt-1 block text-sm text-neutral-900 dark:text-white">{sceneCount} 条分镜</strong>
+            </div>
+            <div>
+              <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">Video Clips</span>
+              <strong className="mt-1 block text-sm text-neutral-900 dark:text-white">{exportableVideoCount} 条可拼接</strong>
+            </div>
+            <div>
+              <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">Duration</span>
+              <strong className="mt-1 block text-sm text-neutral-900 dark:text-white">{durationLabel}</strong>
+            </div>
+          </div>
+
+          {(isExporting || progress) && (
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3">
+              <div className="mb-2 flex items-center justify-between gap-3 text-xs text-cyan-800 dark:text-cyan-200">
+                <span className="flex items-center gap-2 font-medium">
+                  {isExporting && <Loader2 size={13} className="animate-spin" />}
+                  {progressLabel}
+                </span>
+                <span className="font-mono">{progressPercent}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/70 dark:bg-black/30">
+                <div
+                  className="h-full rounded-full bg-cyan-500 transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-800 dark:text-amber-200">
+              {error}
+            </div>
+          )}
+
+          {result && (
+            <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs leading-5 text-emerald-800 dark:text-emerald-200">
+              已生成 {result.videoCount} 个片段的粗剪视频：{result.filename}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-neutral-200 bg-neutral-50 px-5 py-4 dark:border-white/10 dark:bg-black/20 sm:flex-row sm:items-center sm:justify-end">
+          <button
+            type="button"
+            onClick={onDownloadStoryboardTable}
+            disabled={sceneCount === 0}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/10 dark:bg-white/5 dark:text-neutral-200 dark:hover:bg-white/10"
+          >
+            <FileText size={15} />
+            下载分镜表 CSV
+          </button>
+          <button
+            type="button"
+            onClick={onDownloadVideo}
+            disabled={!result || isExporting}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/10 dark:bg-white/5 dark:text-neutral-200 dark:hover:bg-white/10"
+          >
+            <Download size={15} />
+            下载粗剪视频
+          </button>
+          <button
+            type="button"
+            onClick={onStartExport}
+            disabled={!canExportVideo}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(6,182,212,0.22)] transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500 disabled:shadow-none dark:disabled:bg-white/10 dark:disabled:text-neutral-500"
+          >
+            {isExporting ? <Loader2 size={15} className="animate-spin" /> : <PackageCheck size={15} />}
+            {isExporting ? '导出中' : result ? '重新生成视频' : '生成粗剪视频'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ============================================================
 // 脚本生成加载遮罩 (实时进度版)
 // ============================================================
@@ -1288,7 +1467,15 @@ export const VisualStoryboardPage = () => {
   const [exportProgress, setExportProgress] = useState<videoExportApi.ExportProgress | null>(null);
   const [exportResult, setExportResult] = useState<videoExportApi.ExportResult | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const [sceneToDelete, setSceneToDelete] = useState<number | null>(null);
+  const structuredStoryboardRows = useMemo(() => videoExportApi.buildStructuredStoryboardRows(scenes), [scenes]);
+  const exportableVideoScenes = useMemo(() => videoExportApi.getExportableVideoScenes(scenes), [scenes]);
+  const exportableVideoCount = exportableVideoScenes.length;
+  const exportTotalDurationSeconds = useMemo(
+    () => structuredStoryboardRows.reduce((total, row) => total + (row.durationSeconds || 0), 0),
+    [structuredStoryboardRows]
+  );
   
   // 交互状态：悬停和展开
   const [hoveredSceneId, setHoveredSceneId] = useState<number | null>(null);
@@ -2736,6 +2923,7 @@ export const VisualStoryboardPage = () => {
   // 导出粗剪
   // ============================================================
   const handleExport = async () => {
+    setShowExportDialog(true);
     try {
       setIsExporting(true);
       setExportProgress(null);
@@ -2743,12 +2931,11 @@ export const VisualStoryboardPage = () => {
       setExportError(null);
 
       console.log('📤 开始导出粗剪，共', scenes.length, '个分镜');
-      const exportableScenes = videoExportApi.getExportableVideoScenes(scenes);
+      const exportableScenes = exportableVideoScenes;
 
       if (exportableScenes.length === 0) {
-        const message = '请先生成视频或上传视频素材，再导出粗剪。';
+        const message = '交付包中的分镜表可以先下载；粗剪视频需要至少 1 个已生成视频或上传视频素材。';
         setExportError(message);
-        alert(message);
         return;
       }
 
@@ -2775,6 +2962,8 @@ export const VisualStoryboardPage = () => {
   };
 
   const handleCloseExportDialog = () => {
+    if (isExporting) return;
+    setShowExportDialog(false);
     setIsExporting(false);
     setExportProgress(null);
     setExportResult(null);
@@ -2786,6 +2975,10 @@ export const VisualStoryboardPage = () => {
       const downloadUrl = assetUrl(exportResult.videoUrl);
       videoExportApi.downloadFile(downloadUrl, exportResult.filename);
     }
+  };
+
+  const handleDownloadStoryboardTable = () => {
+    videoExportApi.downloadStructuredStoryboardTable(scenes, projectTitle);
   };
 
   // ============================================================
@@ -2973,16 +3166,10 @@ export const VisualStoryboardPage = () => {
     <div className="nm-flow-page nm-storyboard-page flex flex-col h-full w-full min-w-0 bg-neutral-50 dark:bg-[#050505] text-neutral-900 dark:text-neutral-200 overflow-hidden font-sans">
       {/* ── 分镜工具条 ─────────────────────────────────────────── */}
       <div className="nm-workbench-toolbar border-b border-neutral-200 dark:border-white/10 bg-white/70 dark:bg-[#0a0a0a]/70 backdrop-blur-md flex flex-col gap-2 px-3 py-2 flex-shrink-0 z-20 lg:h-11 lg:flex-row lg:items-center lg:justify-between lg:px-4">
-        <div className="flex w-full items-center justify-end gap-1">
+        <div className="flex w-full flex-wrap items-center justify-end gap-2">
           <button onClick={handleBatchGenerateImages} disabled={isBatchGeneratingImages || isBatchGeneratingVideos || scenes.length === 0}
             className="flex items-center gap-1.5 rounded-md border border-cyan-500/30 bg-cyan-500/15 px-3 py-1.5 text-[11px] font-medium text-cyan-700 transition-colors hover:bg-cyan-500/20 disabled:opacity-50 dark:text-cyan-300">
             {isBatchGeneratingImages ? <><Loader2 size={12} className="animate-spin" />{batchGenerationProgress.current}/{batchGenerationProgress.total}</> : <><ImagePlus size={12} />生成图片</>}
-          </button>
-
-          <button onClick={handleExport} disabled={isExporting}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white/70 px-3 py-1.5 text-[11px] font-medium text-neutral-600 transition-colors hover:text-neutral-900 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:text-white">
-            {isExporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-            {isExporting ? '处理中' : '导出'}
           </button>
 
           <details className="group relative">
@@ -3078,6 +3265,45 @@ export const VisualStoryboardPage = () => {
             </div>
             </div>
           </div>
+
+          <section className="mx-4 mb-4 rounded-2xl border border-cyan-500/30 bg-white/75 p-4 shadow-[0_18px_45px_rgba(6,182,212,0.12)] backdrop-blur-md dark:border-cyan-400/25 dark:bg-cyan-950/20 sm:mx-8 sm:p-5">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex min-w-0 gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-600 text-white shadow-[0_12px_26px_rgba(6,182,212,0.28)] dark:bg-cyan-400 dark:text-cyan-950">
+                  <PackageCheck size={24} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-300">最后一步</div>
+                  <h3 className="mt-1 text-lg font-semibold text-neutral-950 dark:text-white">导出交付包</h3>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+                    完成分镜、画面和视频片段后，从这里导出结构化分镜表 CSV 和粗剪视频 MP4。
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center xl:justify-end">
+                <div className="grid grid-cols-2 gap-2 text-xs sm:w-[260px]">
+                  <div className="rounded-xl border border-neutral-200 bg-white/75 px-3 py-2 dark:border-white/10 dark:bg-black/25">
+                    <span className="block text-[10px] uppercase tracking-[0.16em] text-neutral-400">分镜</span>
+                    <strong className="mt-1 block text-sm text-neutral-900 dark:text-white">{scenes.length} 条</strong>
+                  </div>
+                  <div className="rounded-xl border border-neutral-200 bg-white/75 px-3 py-2 dark:border-white/10 dark:bg-black/25">
+                    <span className="block text-[10px] uppercase tracking-[0.16em] text-neutral-400">可拼接视频</span>
+                    <strong className="mt-1 block text-sm text-neutral-900 dark:text-white">{exportableVideoCount} 段</strong>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(6,182,212,0.28)] transition-all hover:-translate-y-0.5 hover:bg-cyan-500 hover:shadow-[0_20px_44px_rgba(6,182,212,0.34)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500 disabled:shadow-none dark:disabled:bg-white/10 dark:disabled:text-neutral-500 sm:min-w-[150px]"
+                >
+                  {isExporting ? <Loader2 size={17} className="animate-spin" /> : <PackageCheck size={17} />}
+                  {isExporting ? '导出中' : '导出交付包'}
+                </button>
+              </div>
+            </div>
+          </section>
 
           {workbenchIntent?.publishGoal === 'fast_publish' && (
             <div className="mx-4 mb-3 flex flex-col gap-3 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-800 dark:text-cyan-200 sm:mx-8 sm:flex-row sm:items-center sm:justify-between">
@@ -3584,6 +3810,20 @@ export const VisualStoryboardPage = () => {
         failCount={batchModalConfig.failCount}
       />
 
+      <ExportPackageDialog
+        isOpen={showExportDialog}
+        isExporting={isExporting}
+        progress={exportProgress}
+        result={exportResult}
+        error={exportError}
+        sceneCount={scenes.length}
+        exportableVideoCount={exportableVideoCount}
+        totalDurationSeconds={exportTotalDurationSeconds}
+        onClose={handleCloseExportDialog}
+        onStartExport={handleExport}
+        onDownloadVideo={handleDownloadExport}
+        onDownloadStoryboardTable={handleDownloadStoryboardTable}
+      />
 
       {/* 视频播放弹窗 */}
       {videoModalUrl && (

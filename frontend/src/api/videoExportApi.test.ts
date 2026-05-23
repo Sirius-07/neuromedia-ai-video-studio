@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  buildStructuredStoryboardCsv,
+  buildStructuredStoryboardRows,
   exportRoughCutWithProgress,
   getExportableVideoScenes,
 } from './videoExportApi';
@@ -73,5 +75,45 @@ describe('video export API', () => {
     ];
 
     expect(getExportableVideoScenes(scenes).map(scene => scene.id)).toEqual([2, 3]);
+  });
+
+  it('builds a structured storyboard table for every shot', () => {
+    const scenes: Scene[] = [
+      {
+        ...baseScene,
+        id: 1,
+        duration: '6s',
+        script: '城市更新浪潮中，老街早餐店如何坚守？',
+        narration: '一碗汤粉，承载几代人的记忆',
+        visualPrompt: '清晨街巷和早餐店门头',
+        motionPrompt: '缓慢推进',
+        videoUrl: '/uploads/video/shot-1.mp4',
+      },
+      {
+        ...baseScene,
+        id: 2,
+        duration: '8',
+        assetUrl: '/uploads/assets/reference.png',
+        notes: '等待生成视频',
+      },
+    ];
+
+    const rows = buildStructuredStoryboardRows(scenes);
+    const csv = buildStructuredStoryboardCsv(scenes);
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      shotNumber: 1,
+      durationSeconds: 6,
+      sourceType: 'AI 生成视频',
+      productionStatus: '视频已就绪',
+    });
+    expect(rows[1]).toMatchObject({
+      sourceType: '图片/参考画面',
+      productionStatus: '有画面，待生成视频',
+    });
+    expect(csv).toContain('"镜号","分镜ID","时长(秒)"');
+    expect(csv).toContain('"城市更新浪潮中，老街早餐店如何坚守？"');
+    expect(csv).toContain('"一碗汤粉，承载几代人的记忆"');
   });
 });
