@@ -6,7 +6,7 @@
 import axios from 'axios';
 import fs from 'fs';
 
-const API_BASE = 'http://localhost:3000/api/v1/audio';
+const API_BASE = 'http://localhost:4300/api/v1/audio';
 const INPUT_FILE = 'direct-api-result.json';
 
 // 颜色输出

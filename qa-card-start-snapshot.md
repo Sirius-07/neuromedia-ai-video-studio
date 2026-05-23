@@ -1,0 +1,29 @@
+- generic [ref=e5]:
+  - banner [ref=e6]:
+    - generic [ref=e7]:
+      - button "NeuroMedia" [ref=e8]:
+        - img [ref=e9]
+        - generic [ref=e18]: NeuroMedia
+      - button "项目 20" [ref=e89]:
+        - generic [ref=e22]
+    - generic [ref=e29]:
+      - button "切换到浅色模式" [ref=e30]:
+        - img [ref=e32]
+      - button "项目设置" [ref=e39]:
+        - img [ref=e41]
+      - button "AC" [ref=e46]:
+        - generic [ref=e48]: AC
+  - generic [ref=e53]:
+    - generic [ref=e54]:
+      - generic [ref=e55]:
+        - img [ref=e56]
+        - text: 开始创作
+      - heading "制作新闻视频交接样片" [level=1] [ref=e59]
+      - paragraph [ref=e60]: 传入报道和素材，快速表达你想要的视频效果。
+    - generic [ref=e61]:
+      - generic [ref=e62]:
+        - textbox "粘贴文稿，写一句想法，或直接上传素材。" [ref=e64]
+        - generic [ref=e65] [cursor=pointer]
+      - generic [ref=e72]:
+        - generic [ref=e73]
+        - button "先输入报道或上传素材" [disabled] [ref=e86]

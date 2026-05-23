@@ -1,9 +1,11 @@
+import { apiUrl } from '../config/api';
+
 /**
  * 单个分镜重新生成 API
  * 通过Node.js代理访问Python后端，统一使用3000端口
  */
 
-const API_BASE_URL = 'http://localhost:3000/api/v1/proxy/python';
+const API_BASE_URL = apiUrl('/api/v1/proxy/python');
 
 export interface SceneContext {
   scene_id: number;

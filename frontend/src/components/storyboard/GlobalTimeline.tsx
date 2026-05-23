@@ -3,6 +3,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize2 } from 
 import { Scene } from './types';
 import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
+import { proxyImageUrl, proxyVideoUrl } from '../../config/api';
 
 interface GlobalTimelineProps {
   scenes: Scene[];
@@ -344,13 +345,13 @@ export const GlobalTimeline: React.FC<GlobalTimelineProps> = ({
                           if (thumbnailUrl) {
                             const isVideo = /\.(mp4|mov|avi|webm|mkv)(\?|$)/i.test(thumbnailUrl);
                             if (isVideo) {
-                              thumbnailUrl = `http://localhost:3000/api/v1/proxy/video?url=${encodeURIComponent(thumbnailUrl)}`;
+                              thumbnailUrl = proxyVideoUrl(thumbnailUrl);
                             } else {
                               // 使用图片代理（如果不是已经代理过的URL）
                               if (!thumbnailUrl.startsWith('data:') && 
                                   !thumbnailUrl.startsWith('blob:') && 
                                   !thumbnailUrl.includes('/api/v1/proxy/')) {
-                                thumbnailUrl = `http://localhost:3000/api/v1/proxy/image?url=${encodeURIComponent(thumbnailUrl)}`;
+                                thumbnailUrl = proxyImageUrl(thumbnailUrl);
                               }
                             }
                           }

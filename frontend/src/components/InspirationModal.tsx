@@ -10,6 +10,17 @@ import * as inspirationApi from '../api/inspirationApi';
 import { AssetInfo } from '../api/scriptApi';
 
 // 导出类型定义
+export interface NewsFacts {
+  headline?: string;
+  who?: string;
+  what?: string;
+  when?: string;
+  where?: string;
+  why?: string;
+  keyQuotes?: string[];
+  mustRetain?: string[];
+}
+
 export interface InspirationProposal {
   title: string;
   tags: string[];
@@ -21,6 +32,7 @@ export interface InspirationProposal {
   reasoning: string;
   visualStyle: string;
   bgmStyle: string;
+  newsFacts?: NewsFacts;
   roughScript: {
     scenes: Array<{
       type: string;
@@ -29,6 +41,8 @@ export interface InspirationProposal {
       duration: number;
       visual?: string;
       assetPath?: string | null;
+      sourceRef?: string;
+      isAISupplemented?: boolean;
     }>;
   };
 }
@@ -40,6 +54,8 @@ interface InspirationModalProps {
   uploadedAssets: AssetInfo[];
   userPrompt: string;
   generationMode?: 'ai_generated' | 'ai_plus_real' | 'pure_real';
+  newsArticle?: string;
+  publishGoal?: 'fast_publish' | 'refine_handoff';
 }
 
 type AnalysisStep = 'generating' | 'complete';
@@ -51,11 +67,14 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
   uploadedAssets,
   userPrompt,
   generationMode = 'ai_generated',
+  newsArticle,
+  publishGoal,
 }) => {
   const [step, setStep] = useState<AnalysisStep>('generating');
   const [proposals, setProposals] = useState<InspirationProposal[]>([]);
   const [selectedProposal, setSelectedProposal] = useState<InspirationProposal | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedProposal, setExpandedProposal] = useState<InspirationProposal | null>(null);
   // 锁定状态：记录被锁定的方案索引
@@ -70,7 +89,7 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
     }
   }, [isOpen]);
 
-  const startGeneration = async () => {
+  const startGeneration = async (attempt = 1) => {
     setStep('generating');
     setError(null);
 
@@ -79,7 +98,9 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
         null,
         uploadedAssets,
         userPrompt,
-        generationMode
+        generationMode,
+        newsArticle,
+        publishGoal
       );
 
       if (!proposalsResult.success || !proposalsResult.data) {
@@ -87,9 +108,21 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
       }
 
       setProposals(proposalsResult.data.proposals);
+      setRetryCount(0);
       setStep('complete');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '生成失败，请重试');
+      const msg = err instanceof Error ? err.message : '生成失败，请重试';
+      const isTransient = /繁忙|超时|503|unavailable|timeout/i.test(msg);
+
+      // 首次遇到临时性错误时自动重试一次
+      if (isTransient && attempt === 1) {
+        setRetryCount(1);
+        setTimeout(() => startGeneration(2), 2000);
+        return;
+      }
+
+      setRetryCount(0);
+      setError(msg);
     }
   };
 
@@ -108,7 +141,9 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
         null,
         uploadedAssets,
         userPrompt,
-        generationMode
+        generationMode,
+        newsArticle,
+        publishGoal
       );
 
       if (!proposalsResult.success || !proposalsResult.data) {
@@ -184,6 +219,7 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
     setProposals([]);
     setSelectedProposal(null);
     setError(null);
+    setRetryCount(0);
     setLockedIndices(new Set());
     setOpenSceneIndices(new Set());
     onClose();
@@ -197,12 +233,38 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
     return 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 border-teal-200 dark:border-teal-500/20';
   };
 
+  const getFitSummary = (proposal: InspirationProposal) => {
+    const parts = [
+      proposal.paceTag ? `${proposal.paceTag}节奏` : null,
+      ...(proposal.scenarioTags ?? []),
+    ].filter((item): item is string => Boolean(item));
+
+    if (parts.length > 0) return parts.slice(0, 3).join(' / ');
+    return (proposal.tags ?? []).slice(0, 2).join(' / ') || '快速探索一个可执行方向';
+  };
+
+  const getPreviewTags = (proposal: InspirationProposal) => {
+    const tags = [
+      ...(proposal.styleTags ?? []),
+      proposal.paceTag,
+      ...(proposal.scenarioTags ?? []),
+      ...(proposal.tags ?? []),
+    ].filter((tag): tag is string => Boolean(tag));
+
+    return [...new Set(tags)].slice(0, 4);
+  };
+
   if (!isOpen) return null;
 
   const lockedCount = lockedIndices.size;
   const refreshLabel = lockedCount > 0
     ? `替换其余 ${proposals.length - lockedCount} 版`
     : '换一批';
+  const modalSubtitle = error
+    ? '稿件和素材已保留，可以重试或返回修改。'
+    : step === 'generating'
+      ? 'AI 正在整理素材，准备 3 个可选方向...'
+      : '先选一个方向。下一步你还可以修改脚本和分镜。';
 
   return (
     <AnimatePresence>
@@ -233,27 +295,42 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
             </button>
             <div className="flex items-center gap-3 mb-2">
               <Sparkles className="text-cyan-400" size={24} />
-              <h2 className="text-2xl font-medium text-neutral-900 dark:text-white tracking-wide">灵感实验室</h2>
+              <h2 className="text-2xl font-medium text-neutral-900 dark:text-white tracking-wide">选择一个视频方案</h2>
             </div>
-            <p className="text-neutral-500 dark:text-neutral-400 text-sm">AI 正在为你寻找最佳创意方案...</p>
+            <p className="text-neutral-500 dark:text-neutral-400 text-sm">{modalSubtitle}</p>
           </div>
 
           {/* 内容区域 */}
           <div className="flex-1 p-6 overflow-y-auto scrollbar-hide bg-neutral-50/50 dark:bg-neutral-950/50">
+            {/* 自动重试提示 */}
+            {retryCount > 0 && !error && (
+              <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-3">
+                <Loader2 size={16} className="text-amber-400 animate-spin shrink-0" />
+                <p className="text-amber-600 dark:text-amber-400 text-sm">AI 服务响应较慢，正在自动重试...</p>
+              </div>
+            )}
+
             {/* 错误提示 */}
             {error && (
-              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-                <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <p className="text-red-600 dark:text-red-400 text-sm font-medium mb-1">方案生成失败</p>
+                  <p className="text-red-500 dark:text-red-400/80 text-xs leading-relaxed">
+                    稿件和素材已保留。你可以重试，或关闭弹窗后调整内容再生成。
+                  </p>
+                </div>
                 <button
-                  onClick={startGeneration}
-                  className="mt-2 text-sm text-red-500 hover:text-red-700 dark:hover:text-red-300 underline"
+                  onClick={() => startGeneration(1)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-300 text-sm font-medium transition-colors border border-red-500/20 shrink-0"
                 >
-                  重试
+                  <RefreshCw size={14} />
+                  重试生成
                 </button>
               </div>
             )}
 
             {/* 生成状态 */}
+            {!error && (
             <div className="bg-white dark:bg-neutral-800/50 rounded-xl p-4 flex items-center gap-3 mb-8 border border-neutral-200 dark:border-white/5">
               <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${step === 'generating' ? 'bg-cyan-500/20' : 'bg-emerald-500/20'}`}>
                 {step === 'generating' ? (
@@ -265,22 +342,31 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
               <div>
                 <div className="text-neutral-900 dark:text-white font-medium text-sm flex items-center gap-2">
                   <Sparkles size={14} className="text-cyan-400" />
-                  {step === 'generating' ? 'AI 正在生成创意方案...' : 'AI 已完成创意方案生成'}
+                  {step === 'generating'
+                    ? (newsArticle ? 'AI 正在提炼重点并生成视频方案...' : 'AI 正在生成创意方案...')
+                    : 'AI 已完成方案生成'}
                 </div>
                 <div className="text-neutral-500 dark:text-neutral-400 text-xs mt-0.5">
                   {step === 'generating'
-                    ? (generationMode === 'ai_plus_real' ? 'AI 正在分析实拍素材并将其融入创意方案...' : 'AI 正在分析您的需求并创作方案...')
-                    : `已生成 ${proposals.length} 个匹配方案`}
+                    ? (newsArticle
+                        ? '正在整理关键事实、保留重要信息，并规划每段画面…'
+                        : generationMode === 'ai_plus_real'
+                          ? 'AI 正在分析实拍素材并将其融入方案…'
+                          : 'AI 正在分析您的需求并创作方案…')
+                    : `已生成 ${proposals.length} 个方案${newsArticle ? '（含内容重点提炼）' : ''}`}
                 </div>
               </div>
             </div>
+            )}
 
             {/* 方案展示 */}
             {step === 'complete' && proposals.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-5">
                   <div>
-                    <h3 className="text-neutral-900 dark:text-white font-medium">选择你喜欢的创意方案</h3>
+                    <h3 className="text-neutral-900 dark:text-white font-medium">
+                      选择一个视频方向
+                    </h3>
                     {lockedCount > 0 && (
                       <p className="text-xs text-amber-500 dark:text-amber-400 mt-0.5">
                         已锁定 {lockedCount} 版 · 点击「{refreshLabel}」仅重新生成其余方案
@@ -358,65 +444,23 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
                             {proposal.title}
                           </h4>
 
-                          {/* 三维度标签 */}
-                          <div className="flex flex-col gap-1.5">
-                            {/* 风格 */}
-                            {proposal.styleTags && proposal.styleTags.length > 0 && (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono shrink-0 w-8">风格</span>
-                                {proposal.styleTags.map((tag, i) => (
-                                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-md bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-500/20">
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {/* 节奏 */}
-                            {proposal.paceTag && (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono shrink-0 w-8">节奏</span>
-                                <span className={`text-[11px] px-2 py-0.5 rounded-md border flex items-center gap-1 ${getPaceColor(proposal.paceTag)}`}>
-                                  {proposal.paceTag === '快' && <Zap size={9} />}
-                                  {proposal.paceTag === '舒缓' && <Clock size={9} />}
-                                  {proposal.paceTag}
-                                </span>
-                              </div>
-                            )}
-                            {/* 适用场景 */}
-                            {proposal.scenarioTags && proposal.scenarioTags.length > 0 && (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono shrink-0 w-8">场景</span>
-                                {proposal.scenarioTags.map((tag, i) => (
-                                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 flex items-center gap-1">
-                                    <MapPin size={9} />
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {/* 兼容旧版：如果没有结构化标签则显示旧 tags */}
-                            {!proposal.styleTags && proposal.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {proposal.tags.map((tag, i) => (
-                                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/5 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/50"></span>
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                            适合：{getFitSummary(proposal)}
+                          </p>
+
+                          <div className="flex items-center gap-1.5 overflow-hidden">
+                            {getPreviewTags(proposal).map((tag, i) => (
+                              <span
+                                key={`${tag}-${i}`}
+                                className="shrink-0 text-[11px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-white/5"
+                              >
+                                {tag}
+                              </span>
+                            ))}
                           </div>
 
-                          {/* AI 推荐原因 */}
-                          {isRecommended && proposal.recommendationReason && (
-                            <div className="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-500/20 rounded-lg p-2.5 text-[12px] text-violet-700 dark:text-violet-300 leading-relaxed">
-                              <Sparkles size={11} className="inline mr-1.5 text-violet-500 -mt-0.5" />
-                              {proposal.recommendationReason}
-                            </div>
-                          )}
-
-                          {/* 推荐理由 */}
-                          <div className="bg-white/50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-lg p-2.5 text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                          {/* 方案重点 */}
+                          <div className="bg-white/50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-lg p-2.5 text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed max-h-20 overflow-hidden">
                             <Sparkles size={12} className="inline mr-1.5 text-cyan-400 -mt-0.5" />
                             {proposal.reasoning}
                           </div>
@@ -442,6 +486,28 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
                                 transition={{ duration: 0.2 }}
                                 className="overflow-hidden"
                               >
+                                {proposal.newsFacts && (
+                                  <div className="mb-3 bg-cyan-50 dark:bg-cyan-900/10 border border-cyan-200 dark:border-cyan-500/20 rounded-lg p-3 space-y-1.5">
+                                    <p className="text-[10px] font-mono tracking-widest text-cyan-600 dark:text-cyan-400 uppercase mb-2">新闻事实与保留信息</p>
+                                    {proposal.newsFacts.headline && (
+                                      <p className="text-[11px] text-neutral-700 dark:text-neutral-300 font-medium leading-snug">{proposal.newsFacts.headline}</p>
+                                    )}
+                                    <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                                      {proposal.newsFacts.who && <p className="text-[10px] text-neutral-500 dark:text-neutral-400"><span className="text-cyan-600 dark:text-cyan-500">WHO</span> {proposal.newsFacts.who}</p>}
+                                      {proposal.newsFacts.when && <p className="text-[10px] text-neutral-500 dark:text-neutral-400"><span className="text-cyan-600 dark:text-cyan-500">WHEN</span> {proposal.newsFacts.when}</p>}
+                                      {proposal.newsFacts.where && <p className="text-[10px] text-neutral-500 dark:text-neutral-400"><span className="text-cyan-600 dark:text-cyan-500">WHERE</span> {proposal.newsFacts.where}</p>}
+                                      {proposal.newsFacts.what && <p className="text-[10px] text-neutral-500 dark:text-neutral-400 col-span-2"><span className="text-cyan-600 dark:text-cyan-500">WHAT</span> {proposal.newsFacts.what}</p>}
+                                    </div>
+                                    {proposal.newsFacts.mustRetain && proposal.newsFacts.mustRetain.length > 0 && (
+                                      <div className="mt-1.5 pt-1.5 border-t border-cyan-200 dark:border-cyan-500/20">
+                                        <p className="text-[10px] text-amber-600 dark:text-amber-400 font-mono mb-1">必须保留</p>
+                                        {proposal.newsFacts.mustRetain.map((item, i) => (
+                                          <p key={i} className="text-[10px] text-neutral-600 dark:text-neutral-400 leading-relaxed">· {item}</p>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                                 <div className="space-y-2 relative pt-1">
                                   <div className="absolute left-[11px] top-3 bottom-2 w-px bg-neutral-200 dark:bg-white/10"></div>
                                   {proposal.roughScript.scenes.map((scene, sceneIndex) => {
@@ -457,14 +523,31 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
                                           {sceneIndex + 1}
                                         </div>
                                         <div className="flex flex-col gap-1">
-                                          {isRealShot && (
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 w-fit">
-                                              实拍
-                                            </span>
-                                          )}
+                                          <div className="flex items-center gap-1 flex-wrap">
+                                            {isRealShot && (
+                                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                                实拍
+                                              </span>
+                                            )}
+                                            {(scene as any).isAISupplemented && (
+                                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
+                                                AI补充
+                                              </span>
+                                            )}
+                                            {!(scene as any).isAISupplemented && (scene as any).sourceRef && !isRealShot && (
+                                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                                                源自原稿
+                                              </span>
+                                            )}
+                                          </div>
                                           <span className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
                                             {scene.description} <span className="text-neutral-400">({scene.duration}s)</span>
                                           </span>
+                                          {(scene as any).sourceRef && !(scene as any).isAISupplemented && (
+                                            <span className="text-[10px] text-cyan-600/70 dark:text-cyan-400/60 leading-snug italic truncate" title={(scene as any).sourceRef}>
+                                              {(scene as any).sourceRef}
+                                            </span>
+                                          )}
                                         </div>
                                       </div>
                                     );
@@ -560,6 +643,29 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
 
                         {/* 弹窗正文（可滚动） */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                          {expandedProposal.newsFacts && (
+                            <div className="p-4 bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-500/20 rounded-xl space-y-2">
+                              <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium">新闻事实与保留信息</p>
+                              {expandedProposal.newsFacts.headline && (
+                                <p className="text-neutral-800 dark:text-cyan-100 text-sm font-medium">{expandedProposal.newsFacts.headline}</p>
+                              )}
+                              <div className="grid grid-cols-2 gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+                                {expandedProposal.newsFacts.who && <p><span className="text-cyan-600 dark:text-cyan-400">WHO</span> {expandedProposal.newsFacts.who}</p>}
+                                {expandedProposal.newsFacts.when && <p><span className="text-cyan-600 dark:text-cyan-400">WHEN</span> {expandedProposal.newsFacts.when}</p>}
+                                {expandedProposal.newsFacts.where && <p><span className="text-cyan-600 dark:text-cyan-400">WHERE</span> {expandedProposal.newsFacts.where}</p>}
+                                {expandedProposal.newsFacts.what && <p className="col-span-2"><span className="text-cyan-600 dark:text-cyan-400">WHAT</span> {expandedProposal.newsFacts.what}</p>}
+                              </div>
+                              {expandedProposal.newsFacts.mustRetain && expandedProposal.newsFacts.mustRetain.length > 0 && (
+                                <div className="pt-2 border-t border-cyan-200 dark:border-cyan-500/20">
+                                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-1">必须保留</p>
+                                  {expandedProposal.newsFacts.mustRetain.map((item, i) => (
+                                    <p key={i} className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">· {item}</p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           {/* AI 推荐原因 */}
                           {expandedProposal.isRecommended && expandedProposal.recommendationReason && (
                             <div className="p-4 bg-gradient-to-r from-violet-50 to-cyan-50 dark:from-violet-950/30 dark:to-cyan-950/30 border border-violet-200 dark:border-violet-500/20 rounded-xl">
@@ -643,7 +749,7 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
                             onClick={() => { handleSelectProposal(expandedProposal); setExpandedProposal(null); }}
                             className="px-5 py-2 bg-gradient-to-r from-cyan-500 to-violet-600 hover:opacity-90 text-white rounded-lg text-sm font-medium transition-all shadow-lg shadow-cyan-500/20"
                           >
-                            选择此方案
+                            选这个方案
                           </button>
                         </div>
                       </motion.div>
@@ -656,24 +762,24 @@ export const InspirationModal: React.FC<InspirationModalProps> = ({
 
           {/* 底部操作栏 */}
           {step === 'complete' && (
-            <div className="px-6 py-4 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-white/5 flex items-center justify-end gap-4 shrink-0">
+            <div className="px-6 py-4 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-white/5 flex flex-col-reverse items-stretch justify-end gap-3 shrink-0 sm:flex-row sm:items-center sm:gap-4">
               <button
                 onClick={handleClose}
                 className="px-6 py-2.5 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors font-medium"
               >
-                取消
+                返回修改
               </button>
               <button
                 onClick={handleConfirm}
                 disabled={!selectedProposal}
-                className={`px-8 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                className={`px-8 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
                   selectedProposal
                     ? 'bg-gradient-to-r from-cyan-500 to-violet-600 text-white shadow-lg shadow-cyan-500/25 hover:opacity-90'
                     : 'bg-neutral-100 dark:bg-white/5 text-neutral-400 cursor-not-allowed'
                 }`}
               >
                 <Sparkles size={16} />
-                确定选择并生成
+                选这个方案，生成脚本
               </button>
             </div>
           )}

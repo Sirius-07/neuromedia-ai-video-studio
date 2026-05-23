@@ -14,6 +14,7 @@ import {
   Pause
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { apiUrl, assetUrl } from '../../config/api';
 
 // 音频类型定义
 interface AudioBlock {
@@ -150,7 +151,7 @@ export const AudioInspector: React.FC<AudioInspectorProps> = ({
       setGenerationProgress(10);
 
       // 调用 TTS API 生成完整配音
-      const response = await fetch('http://localhost:3000/api/tts/generate', {
+      const response = await fetch(apiUrl('/api/tts/generate'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -201,7 +202,7 @@ export const AudioInspector: React.FC<AudioInspectorProps> = ({
       }
 
       // 将完整配音和分割信息存储（这里可以扩展为实际的音频分割）
-      console.log('💾 配音文件:', `http://localhost:3000${result.audio_url}`);
+      console.log('💾 配音文件:', assetUrl(result.audio_url));
       console.log('✂️ 分割点:', segments.map(s => `${s.endTime.toFixed(1)}s`).join(', '));
 
       setTimeout(() => {

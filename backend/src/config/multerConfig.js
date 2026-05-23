@@ -1,13 +1,10 @@
 import multer from 'multer';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { UPLOADS_DIR } from './serverConfig.js';
 
 // 确保上传目录存在
-const uploadDir = path.join(__dirname, '../../uploads/videos');
+const uploadDir = path.join(UPLOADS_DIR, 'videos');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

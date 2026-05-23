@@ -1,5 +1,5 @@
 // storyboard/assistant/StoryboardDirectorPanel.tsx
-// Storyboard AI Director 右侧面板完整 UI
+// Storyboard AI 分镜助手右侧面板完整 UI
 // 风格与 ScriptAssistantPanel 保持一致，适配分镜板专属逻辑
 
 import React, {
@@ -7,6 +7,7 @@ import React, {
   useRef,
   useEffect,
   useCallback,
+  useMemo,
   type KeyboardEvent,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,12 +23,23 @@ import {
   AlertCircle,
   Image as ImageIcon,
   Video,
+  Gauge,
+  WandSparkles,
+  MessagesSquare,
 } from "lucide-react";
 
 import type { Scene }               from "../types";
 import type { StoryboardMode, DirectorMessage } from "./types";
-import { useStoryboardAssistant }    from "./useStoryboardAssistant";
+import {
+  useStoryboardAssistant,
+  type StoryboardAssistantActionPreview,
+  type StoryboardAssistantActionsEvent,
+}                                    from "./useStoryboardAssistant";
 import StoryboardActionPreview       from "./StoryboardActionPreview";
+import {
+  deriveStoryboardAgentState,
+  type StoryboardAgentInsight,
+}                                    from "./agentIntelligence";
 
 // ─────────────────────────────────────────────────────────────
 // 快捷建议内容（按模式 × 是否选中 shot 分类）
@@ -64,22 +76,35 @@ const SUGGESTIONS = {
 // Sub-component：TypingIndicator
 // ─────────────────────────────────────────────────────────────
 
+const AGENT_TONES = {
+  neutral: {
+    chip: "bg-white/[0.04] hover:bg-white/[0.07] border-white/[0.08] hover:border-white/[0.14] text-neutral-400 hover:text-neutral-200",
+  },
+  active: {
+    chip: "bg-cyan-500/10 hover:bg-cyan-500/[0.16] border-cyan-500/25 hover:border-cyan-500/[0.45] text-cyan-200 hover:text-cyan-100",
+  },
+  danger: {
+    avatar: "bg-red-500/20 border border-red-500/30",
+    bubble: "bg-red-500/10 border border-red-500/20 text-red-300 rounded-tl-sm",
+  },
+} as const;
+
 function TypingIndicator() {
   return (
     <div className="flex items-center gap-2.5 px-1 py-1">
-      <div className="w-6 h-6 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0">
-        <Film size={11} className="text-violet-400" />
+      <div className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center justify-center shrink-0">
+        <Film size={11} className="text-amber-300" />
       </div>
       <div className="flex items-center gap-1">
         {[0, 1, 2].map((i) => (
           <motion.span
             key={i}
-            className="w-1.5 h-1.5 rounded-full bg-violet-400/60"
+            className="w-1.5 h-1.5 rounded-full bg-amber-300/70"
             animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
             transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2, ease: "easeInOut" }}
           />
         ))}
-        <span className="text-xs text-neutral-500 ml-1">导演正在思考...</span>
+        <span className="text-xs text-neutral-500 ml-1">助手正在思考...</span>
       </div>
     </div>
   );
@@ -90,41 +115,20 @@ function TypingIndicator() {
 // ─────────────────────────────────────────────────────────────
 
 function EmptyState({
-  mode,
-  hasSelectedShot,
-  onSuggest,
+  insight,
 }: {
-  mode:            StoryboardMode;
-  hasSelectedShot: boolean;
-  onSuggest:       (text: string) => void;
+  insight:         StoryboardAgentInsight;
 }) {
-  const starters = hasSelectedShot
-    ? SUGGESTIONS[mode].shot
-    : SUGGESTIONS[mode].global;
-
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-5 px-6 text-center">
-      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 border border-violet-500/20 flex items-center justify-center">
-        <Film size={22} className="text-violet-400" />
+    <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+      <div className="w-11 h-11 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+        <Film size={20} className="text-cyan-300" />
       </div>
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium text-neutral-300">AI Director 已就绪</p>
-        <p className="text-xs text-neutral-500 leading-relaxed">
-          {hasSelectedShot
-            ? "已选中分镜，可针对当前 Shot 下指令"
-            : "选中某个分镜进行精准修改，\n或直接发起全局对话"}
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-neutral-300">{insight.emptyTitle}</p>
+        <p className="text-xs text-neutral-600 leading-relaxed">
+          {insight.emptyDescription}
         </p>
-      </div>
-      <div className="w-full space-y-1.5">
-        {starters.map((s) => (
-          <button
-            key={s}
-            onClick={() => onSuggest(s)}
-            className="w-full text-left text-xs px-3 py-2.5 rounded-lg bg-white/[0.03] hover:bg-violet-500/10 border border-white/[0.06] hover:border-violet-500/25 text-neutral-400 hover:text-violet-300 transition-all duration-200"
-          >
-            {s}
-          </button>
-        ))}
       </div>
     </div>
   );
@@ -138,10 +142,12 @@ function SuggestionChips({
   suggestions,
   disabled,
   onSelect,
+  variant = "soft",
 }: {
   suggestions: string[];
   disabled?:   boolean;
   onSelect:    (text: string) => void;
+  variant?:     "soft" | "choice";
 }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -150,11 +156,65 @@ function SuggestionChips({
           key={s}
           onClick={() => onSelect(s)}
           disabled={disabled}
-          className="text-[11px] px-2.5 py-1 rounded-full bg-white/[0.04] hover:bg-violet-500/10 border border-white/[0.08] hover:border-violet-500/30 text-neutral-400 hover:text-violet-300 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+          className={`text-[11px] px-2.5 py-1 rounded-full border transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${
+            variant === "choice"
+              ? AGENT_TONES.active.chip
+              : AGENT_TONES.neutral.chip
+          }`}
         >
           {s}
         </button>
       ))}
+    </div>
+  );
+}
+
+function AgentContextBrief({
+  insight,
+  disabled,
+  onSuggest,
+}: {
+  insight: StoryboardAgentInsight;
+  disabled?: boolean;
+  onSuggest: (text: string) => void;
+}) {
+  return (
+    <div className="px-4 py-3 border-b border-white/[0.04] shrink-0 space-y-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex items-center gap-2 text-[11px] text-neutral-500">
+          <span className="truncate">{insight.focusLabel}</span>
+          <span className="h-1 w-1 rounded-full bg-neutral-700" />
+          <span className="shrink-0">{insight.modeLabel}</span>
+        </div>
+        <div
+          className="flex h-7 shrink-0 items-center gap-1 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-2 text-cyan-300"
+          title={insight.primaryNeed}
+        >
+          <Gauge size={12} />
+          <span className="font-mono text-[10px] font-semibold">{insight.completionPercent}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onSuggest(insight.recommendedPrompt)}
+          className="flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-2 py-1.5 text-[11px] font-medium text-cyan-300 transition-colors hover:bg-cyan-500/[0.16] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <WandSparkles size={12} />
+          推荐下一步
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onSuggest(insight.optionPrompt)}
+          className="flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 text-[11px] font-medium text-neutral-400 transition-colors hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <MessagesSquare size={12} />
+          先给选项
+        </button>
+      </div>
     </div>
   );
 }
@@ -165,11 +225,11 @@ function SuggestionChips({
 
 function MessageBubble({
   message,
-  onSuggest,
+  onChoice,
   disabled,
 }: {
   message:   DirectorMessage;
-  onSuggest: (text: string) => void;
+  onChoice:  (text: string) => void;
   disabled?: boolean;
 }) {
   const isAssistant = message.role === "assistant";
@@ -206,21 +266,21 @@ function MessageBubble({
         {isAssistant && (
           <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
             isError
-              ? "bg-red-500/20 border border-red-500/30"
-              : "bg-violet-500/20 border border-violet-500/30"
+              ? AGENT_TONES.danger.avatar
+              : "bg-cyan-500/10 border border-cyan-500/25"
           }`}>
             {isError
               ? <AlertCircle size={11} className="text-red-400" />
-              : <Film       size={11} className="text-violet-400" />}
+              : <Film       size={11} className="text-cyan-300" />}
           </div>
         )}
 
         <div className={`px-3 py-2.5 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap ${
           isError
-            ? "bg-red-500/10 border border-red-500/20 text-red-300 rounded-tl-sm"
+            ? AGENT_TONES.danger.bubble
             : isAssistant
             ? "bg-white/[0.05] border border-white/[0.07] text-neutral-300 rounded-tl-sm"
-            : "bg-violet-500/15 border border-violet-500/25 text-violet-100 rounded-tr-sm"
+            : "bg-cyan-500/10 border border-cyan-500/20 text-cyan-100 rounded-tr-sm"
         }`}>
           {renderContent(message.content)}
         </div>
@@ -232,7 +292,8 @@ function MessageBubble({
           <SuggestionChips
             suggestions={message.suggestions}
             disabled={disabled}
-            onSelect={onSuggest}
+            onSelect={onChoice}
+            variant="choice"
           />
         </div>
       )}
@@ -261,7 +322,7 @@ function ShotIndicator({
   }
 
   const idx = scenes.findIndex((s) => s.id === selectedShotId);
-  const label = idx === -1 ? `Shot #${selectedShotId}` : `Shot ${idx + 1}`;
+  const label = idx === -1 ? `分镜 ${selectedShotId}` : `分镜 ${idx + 1}`;
 
   return (
     <AnimatePresence mode="wait">
@@ -273,9 +334,9 @@ function ShotIndicator({
         transition={{ duration: 0.15 }}
         className="flex items-center gap-1.5 text-[11px]"
       >
-        <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-        <Crosshair size={10} className="text-violet-400" />
-        <span className="text-violet-400">{label} 已选中</span>
+        <div className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />
+        <Crosshair size={10} className="text-cyan-300" />
+        <span className="text-cyan-300">{label} 已选中</span>
       </motion.div>
     </AnimatePresence>
   );
@@ -297,6 +358,8 @@ export interface StoryboardDirectorPanelProps {
   lastActionSummary?: string;
   /** 项目 ID（用于后端日志追踪，可选） */
   projectId?:         string;
+  onPreviewActionsChange?: (preview: StoryboardAssistantActionPreview | null) => void;
+  onActionsApplied?:       (event: StoryboardAssistantActionsEvent) => void;
   className?:         string;
 }
 
@@ -314,6 +377,8 @@ export default function StoryboardDirectorPanel({
   onRegenerateAll,
   lastActionSummary,
   projectId,
+  onPreviewActionsChange,
+  onActionsApplied,
   className = "",
 }: StoryboardDirectorPanelProps) {
 
@@ -339,6 +404,8 @@ export default function StoryboardDirectorPanel({
     onRegenerateAll,
     projectId,
     lastActionSummary,
+    onPreviewActionsChange,
+    onActionsApplied,
   });
 
   // ── 局部 UI 状态 ──────────────────────────────────────────
@@ -351,12 +418,14 @@ export default function StoryboardDirectorPanel({
   const isLoading     = actionStatus === "thinking" || actionStatus === "applying";
   const isAwaitingConfirm = actionStatus === "awaiting-confirm";
   const hasSelectedShot   = selectedShotId !== null;
+  const isChoiceDisabled   = isLoading || isAwaitingConfirm;
+
+  const agentInsight = useMemo(
+    () => deriveStoryboardAgentState(scenes, mode, selectedShotId),
+    [scenes, mode, selectedShotId]
+  );
 
   // 当前活跃建议列表
-  const activeSuggestions = hasSelectedShot
-    ? SUGGESTIONS[mode].shot
-    : SUGGESTIONS[mode].global;
-
   // ── 自动滚动至底部 ────────────────────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -376,6 +445,14 @@ export default function StoryboardDirectorPanel({
       setTimeout(() => inputRef.current?.focus(), 50);
     },
     [setInputDraft]
+  );
+
+  const handleChoice = useCallback(
+    (text: string) => {
+      if (isChoiceDisabled) return;
+      sendMessage(text);
+    },
+    [isChoiceDisabled, sendMessage]
   );
 
   // ── 发送逻辑 ─────────────────────────────────────────────
@@ -406,24 +483,20 @@ export default function StoryboardDirectorPanel({
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 border border-violet-500/20 flex items-center justify-center">
-            <Film size={13} className="text-violet-400" />
+          <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+            <Film size={13} className="text-cyan-300" />
           </div>
           <span className="text-[11px] font-semibold tracking-[0.15em] text-neutral-300 uppercase">
-            AI Director
+            AI 分镜助手
           </span>
         </div>
 
         <div className="flex items-center gap-2">
           {/* 模式徽章（image / video） */}
-          <div className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
-            mode === "image"
-              ? "bg-sky-500/10 border-sky-500/20 text-sky-400"
-              : "bg-amber-500/10 border-amber-500/20 text-amber-400"
-          }`}>
+          <div className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border bg-white/[0.04] border-white/[0.08] text-neutral-400">
             {mode === "image"
-              ? <><ImageIcon size={9} /><span className="ml-0.5">IMAGE</span></>
-              : <><Video     size={9} /><span className="ml-0.5">VIDEO</span></>
+              ? <><ImageIcon size={9} /><span className="ml-0.5">图片</span></>
+              : <><Video     size={9} /><span className="ml-0.5">视频</span></>
             }
           </div>
 
@@ -441,19 +514,13 @@ export default function StoryboardDirectorPanel({
       </div>
 
       {/* ── Shot / Global 指示条 ── */}
-      <div className="px-4 py-2 border-b border-white/[0.04] shrink-0 min-h-[32px] flex items-center">
-        <ShotIndicator scenes={scenes} selectedShotId={selectedShotId} />
-      </div>
+      <AgentContextBrief
+        insight={agentInsight}
+        disabled={isChoiceDisabled}
+        onSuggest={handleSuggest}
+      />
 
       {/* ── 快捷建议 chips ── */}
-      <div className="px-4 pt-3 pb-2.5 border-b border-white/[0.04] shrink-0">
-        <SuggestionChips
-          suggestions={activeSuggestions}
-          disabled={isLoading || isAwaitingConfirm}
-          onSelect={handleSuggest}
-        />
-      </div>
-
       {/* ── 消息列表 ── */}
       <div
         ref={scrollRef}
@@ -466,9 +533,7 @@ export default function StoryboardDirectorPanel({
         {/* 空状态 */}
         {messages.length === 0 && actionStatus === "idle" ? (
           <EmptyState
-            mode={mode}
-            hasSelectedShot={hasSelectedShot}
-            onSuggest={handleSuggest}
+            insight={agentInsight}
           />
         ) : (
           <AnimatePresence initial={false}>
@@ -476,8 +541,8 @@ export default function StoryboardDirectorPanel({
               <MessageBubble
                 key={msg.id}
                 message={msg}
-                onSuggest={handleSuggest}
-                disabled={isLoading || isAwaitingConfirm}
+                onChoice={handleChoice}
+                disabled={isChoiceDisabled}
               />
             ))}
           </AnimatePresence>
@@ -510,7 +575,7 @@ export default function StoryboardDirectorPanel({
 
         {/* 应用中状态 */}
         {actionStatus === "applying" && (
-          <div className="flex items-center gap-2 text-xs text-violet-400/80 px-1">
+          <div className="flex items-center gap-2 text-xs text-amber-300/80 px-1">
             <Loader2 size={13} className="animate-spin" />
             正在应用修改...
           </div>
@@ -577,7 +642,7 @@ export default function StoryboardDirectorPanel({
           )}
         </AnimatePresence>
 
-        <div className="flex items-end gap-2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 focus-within:border-violet-500/40 focus-within:bg-violet-500/[0.03] transition-all duration-200">
+        <div className="flex items-end gap-2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 focus-within:border-cyan-500/35 focus-within:bg-cyan-500/[0.03] transition-all duration-200">
           <textarea
             ref={inputRef}
             value={inputDraft}
@@ -591,8 +656,8 @@ export default function StoryboardDirectorPanel({
                 : isAwaitingConfirm
                 ? "请先确认或取消上方建议"
                 : hasSelectedShot
-                ? `指挥选中的分镜...`
-                : `告诉 AI Director 你的想法...`
+                ? `描述选中分镜要怎么改...`
+                : `告诉 AI 分镜助手你的想法...`
             }
             rows={1}
             className="flex-1 bg-transparent text-xs text-neutral-300 placeholder:text-neutral-600 resize-none outline-none leading-relaxed max-h-28 overflow-y-auto"
@@ -602,8 +667,8 @@ export default function StoryboardDirectorPanel({
             disabled={!inputDraft.trim() || isLoading || isAwaitingConfirm}
             className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mb-0.5 transition-all duration-150
               disabled:opacity-30 disabled:cursor-not-allowed active:scale-95
-              bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50
-              text-violet-400 hover:text-violet-300"
+              bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/25 hover:border-cyan-500/45
+              text-cyan-300 hover:text-cyan-200"
           >
             {isLoading
               ? <Loader2 size={13} className="animate-spin" />
@@ -613,7 +678,7 @@ export default function StoryboardDirectorPanel({
         </div>
 
         <p className="text-[10px] text-neutral-700 text-center">
-          Enter 发送 · Shift+Enter 换行
+          回车发送 · Shift+回车换行
         </p>
       </div>
     </div>

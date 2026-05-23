@@ -106,7 +106,22 @@ class ProjectService {
    * @returns {Promise<Object>} 更新后的项目
    */
   static async saveStoryboard(projectId, storyboardData) {
-    const { scenes, title, userPrompt, uploadedAssets, generationMode } = storyboardData;
+    const {
+      scenes,
+      title,
+      userPrompt,
+      uploadedAssets,
+      generationMode,
+      assetTheme,
+      selectedProposal,
+      proposalAlternatives,
+      publishGoal,
+      inputMode,
+      aspectRatio,
+      artStyle,
+      flowVersion,
+      creationIntent
+    } = storyboardData;
     
     try {
       console.log(`🎬 [Project] 保存分镜数据: ${projectId}`);
@@ -138,8 +153,20 @@ class ProjectService {
         updateData.userPrompt = userPrompt;
       }
       
-      // 将 uploadedAssets 和 generationMode 保存到 settings
-      if (uploadedAssets !== undefined || generationMode !== undefined) {
+      // 将工作台创建上下文保存到 settings，确保刷新后可恢复
+      if (
+        uploadedAssets !== undefined ||
+        generationMode !== undefined ||
+        assetTheme !== undefined ||
+        selectedProposal !== undefined ||
+        proposalAlternatives !== undefined ||
+        publishGoal !== undefined ||
+        inputMode !== undefined ||
+        aspectRatio !== undefined ||
+        artStyle !== undefined ||
+        flowVersion !== undefined ||
+        creationIntent !== undefined
+      ) {
         // 先读取现有的 settings
         const currentProject = await prisma.project.findUnique({
           where: { id: projectId },
@@ -162,6 +189,35 @@ class ProjectService {
         if (generationMode !== undefined) {
           settings.generationMode = generationMode;
         }
+        if (assetTheme !== undefined) {
+          settings.assetTheme = assetTheme;
+        }
+        if (selectedProposal !== undefined) {
+          settings.selectedProposal = selectedProposal;
+          settings.inspirationProposal = selectedProposal;
+        }
+        if (proposalAlternatives !== undefined) {
+          settings.proposalAlternatives = proposalAlternatives;
+        }
+        if (publishGoal !== undefined) {
+          settings.publishGoal = publishGoal;
+        }
+        if (inputMode !== undefined) {
+          settings.inputMode = inputMode;
+        }
+        if (aspectRatio !== undefined) {
+          settings.aspectRatio = aspectRatio;
+        }
+        if (artStyle !== undefined) {
+          settings.artStyle = artStyle;
+        }
+        if (flowVersion !== undefined) {
+          settings.flowVersion = flowVersion;
+        }
+        if (creationIntent !== undefined) {
+          settings.creationIntent = creationIntent;
+        }
+        settings.currentPage = 'storyboard';
         
         updateData.settings = JSON.stringify(settings);
       }

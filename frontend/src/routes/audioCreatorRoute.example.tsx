@@ -294,7 +294,7 @@ import { AudioCreatorPage } from './components/AudioCreatorPage';
 ## 3. 访问页面
 
 启动开发服务器后，访问：
-http://localhost:3000/audio-creator
+http://localhost:4300/audio-creator
 
 ## 4. 自定义配置
 

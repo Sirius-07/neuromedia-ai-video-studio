@@ -5,9 +5,142 @@
  */
 
 import { Scene } from '../components/storyboard/types';
+import { apiUrl } from '../config/api';
 
 // API 基础地址
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = apiUrl('');
+const VIDEO_FILE_EXTENSIONS = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'];
+
+function isLikelyVideoUrl(url?: string | null): boolean {
+  if (!url) return false;
+  const pathname = url.split('?')[0]?.toLowerCase() || '';
+  return VIDEO_FILE_EXTENSIONS.some(extension => pathname.endsWith(extension));
+}
+
+export function getExportableVideoScenes(scenes: Scene[]): Scene[] {
+  return scenes.filter(scene => Boolean(scene.videoUrl) || isLikelyVideoUrl(scene.assetUrl));
+}
+
+export interface StructuredStoryboardRow {
+  shotNumber: number;
+  shotId: number;
+  durationSeconds: number | null;
+  visualContent: string;
+  voiceoverText: string;
+  imagePrompt: string;
+  motionPrompt: string;
+  sourceType: string;
+  sourceUrl: string;
+  videoUrl: string;
+  productionStatus: string;
+  notes: string;
+}
+
+function parseDurationSeconds(duration?: string | null): number | null {
+  if (!duration) return null;
+  const value = Number.parseFloat(String(duration).replace(/[^\d.]/g, ''));
+  return Number.isFinite(value) ? value : null;
+}
+
+function normalizeTableText(value?: string | null): string {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function getSourceType(scene: Scene): string {
+  if (scene.videoUrl) return 'AI 生成视频';
+  if (isLikelyVideoUrl(scene.assetUrl)) return '上传视频素材';
+  if (scene.assetUrl) return '图片/参考画面';
+  return '待补充';
+}
+
+function getProductionStatus(scene: Scene): string {
+  if (scene.videoUrl || isLikelyVideoUrl(scene.assetUrl)) return '视频已就绪';
+  if (scene.generationStatus === 'generating_video') return '视频生成中';
+  if (scene.generationStatus === 'generating_image') return '图片生成中';
+  if (scene.assetUrl) return '有画面，待生成视频';
+  return '待补充画面';
+}
+
+export function buildStructuredStoryboardRows(scenes: Scene[]): StructuredStoryboardRow[] {
+  return scenes.map((scene, index) => {
+    const sourceUrl = scene.videoUrl || scene.assetUrl || '';
+    const voiceoverText = scene.narration || scene.dialogue || '';
+
+    return {
+      shotNumber: index + 1,
+      shotId: scene.id,
+      durationSeconds: parseDurationSeconds(scene.duration),
+      visualContent: normalizeTableText(scene.script),
+      voiceoverText: normalizeTableText(voiceoverText),
+      imagePrompt: normalizeTableText(scene.visualPrompt),
+      motionPrompt: normalizeTableText(scene.motionPrompt),
+      sourceType: getSourceType(scene),
+      sourceUrl,
+      videoUrl: scene.videoUrl || (isLikelyVideoUrl(scene.assetUrl) ? scene.assetUrl || '' : ''),
+      productionStatus: getProductionStatus(scene),
+      notes: normalizeTableText(scene.notes),
+    };
+  });
+}
+
+function escapeCsvCell(value: string | number | null): string {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+
+export function buildStructuredStoryboardCsv(scenes: Scene[]): string {
+  const headers = [
+    '镜号',
+    '分镜ID',
+    '时长(秒)',
+    '画面内容',
+    '旁白/字幕',
+    '图片提示词',
+    '视频运动提示词',
+    '素材类型',
+    '素材/画面URL',
+    '视频URL',
+    '制作状态',
+    '备注',
+  ];
+
+  const rows = buildStructuredStoryboardRows(scenes).map(row => [
+    row.shotNumber,
+    row.shotId,
+    row.durationSeconds,
+    row.visualContent,
+    row.voiceoverText,
+    row.imagePrompt,
+    row.motionPrompt,
+    row.sourceType,
+    row.sourceUrl,
+    row.videoUrl,
+    row.productionStatus,
+    row.notes,
+  ]);
+
+  return [
+    `\uFEFF${headers.map(escapeCsvCell).join(',')}`,
+    ...rows.map(row => row.map(escapeCsvCell).join(',')),
+  ].join('\n');
+}
+
+export function buildExportFilenameBase(projectTitle?: string, date: Date = new Date()): string {
+  const title = normalizeTableText(projectTitle)
+    .replace(/[\\/:*?"<>|]/g, '')
+    .replace(/\s+/g, '_')
+    .slice(0, 48) || 'storyboard_export';
+  const timestamp = date.toISOString().slice(0, 19).replace(/[T:]/g, '-');
+  return `${title}_${timestamp}`;
+}
+
+export function downloadStructuredStoryboardTable(scenes: Scene[], projectTitle?: string): string {
+  const filename = `${buildExportFilenameBase(projectTitle)}_storyboard.csv`;
+  const blob = new Blob([buildStructuredStoryboardCsv(scenes)], { type: 'text/csv;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  downloadFile(url, filename);
+  window.URL.revokeObjectURL(url);
+  return filename;
+}
 
 /**
  * 导出结果
@@ -83,17 +216,9 @@ export async function exportRoughCutWithProgress(
   return new Promise((resolve, reject) => {
     try {
       console.log('📤 开始导出粗剪（带进度），共', scenes.length, '个分镜');
-      
-      // 使用 EventSource 接收 SSE
-      const eventSource = new EventSource(
-        `${API_BASE_URL}/api/v1/video-export/rough-cut`,
-        {
-          // Note: EventSource 不支持 POST，需要修改为支持查询参数
-          // 或使用 fetch + ReadableStream
-        }
-      );
 
-      // 由于 EventSource 不支持 POST，我们使用 fetch + ReadableStream
+      // EventSource only supports GET; this export endpoint is POST + SSE.
+      // Use fetch streams directly so the browser never makes a stray GET request.
       fetch(`${API_BASE_URL}/api/v1/video-export/rough-cut`, {
         method: 'POST',
         headers: {

@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Solution Slide 03 V2</title>
+  <style>
+    :root {
+      --ink: #0b1728;
+      --muted: #506173;
+      --subtle: #e4edf3;
+      --cyan: #08a8c8;
+      --cyan-deep: #05788f;
+      --orange: #c87722;
+      --red: #c8443b;
+      --green: #1f8a62;
+      --paper: #f7fbfd;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      width: 2048px;
+      height: 1152px;
+      overflow: hidden;
+      background: #8d8f91;
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif;
+    }
+
+    .slide {
+      position: relative;
+      width: 2048px;
+      height: 1152px;
+      overflow: hidden;
+      border: 14px solid #8d8f91;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.88), rgba(248,252,254,.92)),
+        radial-gradient(circle at 22% 22%, rgba(8,168,200,.09), transparent 26%),
+        radial-gradient(circle at 80% 72%, rgba(200,119,34,.08), transparent 24%),
+        #eef7fb;
+    }
+
+    .topbar {
+      position: absolute;
+      left: 82px;
+      right: 82px;
+      top: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      color: #435267;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 0;
+      white-space: nowrap;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .brand strong {
+      color: var(--cyan);
+      font-size: 30px;
+    }
+
+    .mark {
+      width: 44px;
+      height: 44px;
+      border: 3px solid var(--cyan);
+      border-radius: 8px;
+      position: relative;
+    }
+
+    .mark::before,
+    .mark::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      background: var(--cyan);
+      transform: translate(-50%, -50%);
+    }
+
+    .mark::before { width: 22px; height: 3px; }
+    .mark::after { width: 3px; height: 22px; }
+
+    .line {
+      flex: 1;
+      height: 2px;
+      margin-left: 28px;
+      background: linear-gradient(90deg, rgba(8,168,200,.55), rgba(8,168,200,.05));
+    }
+
+    .page {
+      color: var(--cyan);
+      font-size: 68px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .page::after {
+      content: "";
+      display: block;
+      width: 72px;
+      height: 7px;
+      margin-top: 16px;
+      border-radius: 99px;
+      background: var(--cyan);
+    }
+
+    .title {
+      position: absolute;
+      left: 90px;
+      top: 160px;
+      width: 1080px;
+      z-index: 6;
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--cyan-deep);
+      font-size: 27px;
+      font-weight: 900;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 7px;
+      height: 30px;
+      border-radius: 99px;
+      background: var(--cyan);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 60px;
+      line-height: 1.12;
+      font-weight: 950;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 18px 0 0;
+      width: 960px;
+      color: var(--muted);
+      font-size: 27px;
+      line-height: 1.48;
+      font-weight: 520;
+    }
+
+    .core {
+      position: absolute;
+      left: 90px;
+      right: 90px;
+      top: 378px;
+      bottom: 68px;
+    }
+
+    .problem-note {
+      position: absolute;
+      left: 0;
+      top: 22px;
+      width: 418px;
+      min-height: 190px;
+      padding: 24px 24px 26px;
+      background: rgba(255,255,255,.92);
+      border: 1px solid rgba(11,23,40,.12);
+      box-shadow: 0 16px 36px rgba(28,50,72,.12);
+      transform: rotate(-1.8deg);
+    }
+
+    .problem-note h2,
+    .output-card h2 {
+      margin: 0 0 16px;
+      font-size: 30px;
+      line-height: 1.2;
+      font-weight: 950;
+    }
+
+    .problem-note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 21px;
+      line-height: 1.45;
+      font-weight: 520;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 18px;
+    }
+
+    .chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #fff7ee;
+      border: 1px solid rgba(200,119,34,.35);
+      color: #895011;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .input-screen {
+      position: absolute;
+      left: 64px;
+      top: 262px;
+      width: 500px;
+      height: 282px;
+      background: #fff;
+      border: 1px solid rgba(11,23,40,.12);
+      box-shadow: 0 18px 42px rgba(28,50,72,.14);
+      border-radius: 8px;
+      overflow: hidden;
+      transform: rotate(1.2deg);
+    }
+
+    .screen img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top left;
+      display: block;
+    }
+
+    .system-band {
+      position: absolute;
+      left: 510px;
+      top: 0;
+      width: 840px;
+      height: 566px;
+      padding: 34px;
+      background: rgba(255,255,255,.74);
+      border: 1px solid rgba(8,168,200,.25);
+      box-shadow: 0 24px 64px rgba(28,50,72,.16);
+      border-radius: 14px;
+    }
+
+    .system-label {
+      position: absolute;
+      left: 34px;
+      top: -23px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: var(--ink);
+      color: #fff;
+      font-size: 20px;
+      font-weight: 900;
+      box-shadow: 0 12px 26px rgba(11,23,40,.18);
+    }
+
+    .mechanism {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 188px 188px;
+      gap: 24px;
+      height: 100%;
+    }
+
+    .step {
+      position: relative;
+      overflow: hidden;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px solid rgba(11,23,40,.10);
+      box-shadow: 0 10px 28px rgba(28,50,72,.10);
+    }
+
+    .step img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top left;
+      display: block;
+      filter: saturate(.95) contrast(.98);
+    }
+
+    .step::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(11,23,40,0) 44%, rgba(11,23,40,.78));
+    }
+
+    .step-text {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 15px;
+      z-index: 2;
+      color: #fff;
+    }
+
+    .step-text b {
+      display: block;
+      font-size: 24px;
+      line-height: 1.15;
+      margin-bottom: 6px;
+    }
+
+    .step-text span {
+      display: block;
+      color: rgba(255,255,255,.82);
+      font-size: 18px;
+      line-height: 1.28;
+      font-weight: 520;
+    }
+
+    .step-num {
+      position: absolute;
+      left: 16px;
+      top: 14px;
+      z-index: 3;
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--cyan);
+      color: white;
+      font-size: 18px;
+      font-weight: 950;
+    }
+
+    .output-card {
+      position: absolute;
+      right: 0;
+      top: 54px;
+      width: 610px;
+      height: 444px;
+      background: #fff;
+      border: 1px solid rgba(11,23,40,.12);
+      box-shadow: 0 22px 56px rgba(28,50,72,.18);
+      border-radius: 10px;
+      overflow: hidden;
+      transform: rotate(-.8deg);
+    }
+
+    .output-card img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: 13% 0;
+      display: block;
+    }
+
+    .output-mask {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.96) 0 38%, rgba(255,255,255,.14) 64%, rgba(255,255,255,0)),
+        linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.92));
+    }
+
+    .output-copy {
+      position: absolute;
+      left: 26px;
+      top: 26px;
+      width: 270px;
+      z-index: 2;
+    }
+
+    .output-copy h2 {
+      font-size: 32px;
+    }
+
+    .checks {
+      display: grid;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--ink);
+      font-size: 21px;
+      font-weight: 850;
+    }
+
+    .check::before {
+      content: "✓";
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #e6f7f2;
+      color: var(--green);
+      font-size: 18px;
+      font-weight: 950;
+    }
+
+    .handoff {
+      position: absolute;
+      right: 24px;
+      bottom: 24px;
+      z-index: 3;
+      padding: 13px 16px;
+      border-radius: 8px;
+      background: #fff3f2;
+      border: 1px solid rgba(200,68,59,.28);
+      color: #9b2a24;
+      font-size: 22px;
+      line-height: 1.2;
+      font-weight: 900;
+      box-shadow: 0 12px 28px rgba(155,42,36,.12);
+    }
+
+    .arrow {
+      position: absolute;
+      z-index: 5;
+      color: var(--cyan);
+      font-size: 52px;
+      font-weight: 300;
+    }
+
+    .arrow-a { left: 430px; top: 322px; transform: rotate(-8deg); }
+    .arrow-b { right: 625px; top: 282px; transform: rotate(3deg); }
+
+    .caption {
+      position: absolute;
+      z-index: 7;
+      padding: 12px 16px;
+      background: rgba(255,255,255,.96);
+      border: 1px solid rgba(11,23,40,.12);
+      box-shadow: 0 12px 28px rgba(28,50,72,.12);
+      border-radius: 8px;
+      font-size: 22px;
+      line-height: 1.2;
+      font-weight: 900;
+    }
+
+    .caption span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 17px;
+      font-weight: 520;
+    }
+
+    .cap-input { left: 100px; top: 226px; }
+    .cap-output { right: 214px; top: 18px; color: var(--cyan-deep); }
+
+    .bottom-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 2px;
+      height: 110px;
+      display: flex;
+      align-items: center;
+      padding-left: 40px;
+      border-top: 3px solid rgba(8,168,200,.62);
+      background: rgba(255,255,255,.66);
+    }
+
+    .target {
+      width: 58px;
+      height: 58px;
+      margin-right: 22px;
+      color: var(--cyan);
+      flex: none;
+    }
+
+    .bottom-line p {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.35;
+      font-weight: 850;
+      color: var(--ink);
+    }
+
+    .bottom-line em {
+      color: var(--cyan-deep);
+      font-style: normal;
+    }
+  </style>
+</head>
+<body>
+  <main class="slide">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"></div>
+        <strong>NEUROMEDIA</strong>
+        <span>|</span>
+        <span>AI 产品交互设计案例</span>
+        <div class="line"></div>
+      </div>
+      <div class="page">03</div>
+    </header>
+
+    <section class="title">
+      <div class="eyebrow">解决方案</div>
+      <h1>把报道意图，翻译成可播放的视频初稿</h1>
+      <p class="subtitle">系统不是单纯生成视频，而是先补齐镜头、节奏、素材和禁忌信息，再生成一版可检查、可修改、可交接的样片。</p>
+    </section>
+
+    <section class="core">
+      <article class="problem-note">
+        <h2>原本丢失的信息</h2>
+        <p>报道稿和口头描述里，常常说不清视频制作最需要的几件事。</p>
+        <div class="chips">
+          <span class="chip">镜头主体</span>
+          <span class="chip">画面气质</span>
+          <span class="chip">新闻重点</span>
+          <span class="chip">时长节奏</span>
+          <span class="chip">禁忌内容</span>
+        </div>
+      </article>
+
+      <div class="screen input-screen">
+        <img src="../../frontend/public/portfolio-preview/assets/start-filled-live.png" alt="报道稿与素材输入界面" />
+      </div>
+      <div class="caption cap-input">记者输入报道意图<span>报道稿 / 素材 / 想要的画面</span></div>
+
+      <div class="arrow arrow-a">→</div>
+
+      <section class="system-band">
+        <div class="system-label">系统补齐制作语言</div>
+        <div class="mechanism">
+          <div class="step">
+            <div class="step-num">1</div>
+            <img src="../../frontend/public/portfolio-preview/assets/start-filled-live.png" alt="提取报道重点" />
+            <div class="step-text">
+              <b>提取报道重点</b>
+              <span>人物、场景、事件顺序、表达重心</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <img src="../../qa-storyboard-quality-optimized-final-clean.png" alt="生成镜头级方案" />
+            <div class="step-text">
+              <b>生成镜头级方案</b>
+              <span>主体、景别、时长、素材来源</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <img src="../../mode-fast-workbench.png" alt="生成画面和片段" />
+            <div class="step-text">
+              <b>生成画面和片段</b>
+              <span>从分镜继续生成可播放内容</span>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <img src="../../frontend/public/portfolio-preview/assets/handoff-table.png" alt="整理交接信息" />
+            <div class="step-text">
+              <b>整理交接信息</b>
+              <span>分镜表、修改意见、制作备注</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="arrow arrow-b">→</div>
+
+      <article class="output-card">
+        <img src="../../frontend/public/portfolio-preview/assets/handoff-desktop.png" alt="视频初稿播放与批注界面" />
+        <div class="output-mask"></div>
+        <div class="output-copy">
+          <h2>输出一版能对齐的初稿</h2>
+          <div class="checks">
+            <div class="check">可播放</div>
+            <div class="check">可批注</div>
+            <div class="check">可交接</div>
+          </div>
+        </div>
+        <div class="handoff">修改意见落到具体镜头</div>
+      </article>
+
+      <div class="caption cap-output">先看到一版<span>再判断重点、气质和画面是否对</span></div>
+
+      <footer class="bottom-line">
+        <svg class="target" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <circle cx="24" cy="24" r="18" stroke="currentColor" stroke-width="4"/>
+          <circle cx="24" cy="24" r="7" stroke="currentColor" stroke-width="4"/>
+          <path d="M36 12l6-6M36 12h8M36 12V4" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p><em>解决路径：</em>把“我想要这样的画面”，变成一份带镜头结构、视频初稿和批注记录的制作交接包。</p>
+      </footer>
+    </section>
+  </main>
+</body>
+</html>

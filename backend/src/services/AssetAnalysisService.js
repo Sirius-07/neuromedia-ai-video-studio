@@ -1,21 +1,27 @@
-import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { arkPost } from '../utils/arkClient.js';
 
 /**
  * AssetAnalysisService - 素材分析服务
- * 
+ *
  * 使用火山方舟的多模态 AI 模型分析用户上传的图片和视频素材
- * 
+ *
  * 素材用途说明：
  * - 视频素材：分析后作为 mixed_media 类型的实拍分镜使用
  * - 图片素材：分析后作为图生视频（I2V）的参考素材
+ *
+ * 注意：改用原生 https（arkPost），避免 axios 与 ARK API 兼容性问题导致的 503 空响应。
  */
 class AssetAnalysisService {
-  
+
   // API 配置
   static API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
-  static MODEL_ID = 'ep-m-20251107114928-w8j8v';  // 使用和 ScriptService 相同的模型端点
+  static MODEL_ID = 'ep-m-20251107114928-w8j8v';
+
+  static cleanDescription(text) {
+    return String(text || '').trim().replace(/^[`'""“”]+|[`'""“”]+$/g, '');
+  }
   
   /**
    * 分析视频素材
@@ -38,7 +44,7 @@ class AssetAnalysisService {
     // 读取视频文件并转换为 Base64
     const videoBuffer = fs.readFileSync(videoPath);
     const base64Video = videoBuffer.toString('base64');
-    const fileExt = path.extname(videoPath).slice(1).toLowerCase();
+    const fileExt = path.extname(videoPath).slice(1).toLowerCase() || 'mp4';
     
     console.log(`📊 [素材分析] 视频文件大小: ${(videoBuffer.length / 1024 / 1024).toFixed(2)}MB`);
     
@@ -100,39 +106,26 @@ class AssetAnalysisService {
     };
     
     try {
-      const response = await axios.post(this.API_URL, requestBody, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 120000  // 2分钟超时
-      });
-      
-      const result = response.data;
-      
+      const result = await arkPost(this.API_URL, requestBody, apiKey, 120000);
+
       if (!result.choices || !result.choices[0]) {
         throw new Error('API响应格式错误：缺少 choices 字段');
       }
-      
-      const description = result.choices[0].message.content.trim();
+
+      const description = this.cleanDescription(result.choices[0].message.content);
       console.log(`✅ [素材分析] 视频分析完成: ${description.substring(0, 50)}...`);
-      
+
       return description;
-      
+
     } catch (error) {
       console.error(`❌ [素材分析] 视频分析失败:`, error.message);
-      
-      if (error.response) {
-        const status = error.response.status;
-        if (status === 401) {
-          throw new Error('API认证失败：请检查 ARK_API_KEY 是否正确');
-        } else if (status === 429) {
-          throw new Error('API请求频率超限：请稍后再试');
-        } else if (status === 400) {
-          throw new Error(`API请求参数错误: ${JSON.stringify(error.response.data)}`);
-        }
+
+      if (error.status) {
+        if (error.status === 401) throw new Error('API认证失败：请检查 ARK_API_KEY 是否正确');
+        if (error.status === 429) throw new Error('API请求频率超限：请稍后再试');
+        if (error.status === 503) throw new Error('AI 视觉服务暂时不可用，将跳过素材分析');
       }
-      
+
       throw error;
     }
   }
@@ -158,7 +151,7 @@ class AssetAnalysisService {
     // 读取图片文件并转换为 Base64
     const imageBuffer = fs.readFileSync(imagePath);
     const base64Image = imageBuffer.toString('base64');
-    const fileExt = path.extname(imagePath).slice(1).toLowerCase();
+    const fileExt = path.extname(imagePath).slice(1).toLowerCase() || 'jpeg';
     
     console.log(`📊 [素材分析] 图片文件大小: ${(imageBuffer.length / 1024).toFixed(2)}KB`);
     
@@ -221,39 +214,26 @@ class AssetAnalysisService {
     };
     
     try {
-      const response = await axios.post(this.API_URL, requestBody, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 60000  // 1分钟超时
-      });
-      
-      const result = response.data;
-      
+      const result = await arkPost(this.API_URL, requestBody, apiKey, 60000);
+
       if (!result.choices || !result.choices[0]) {
         throw new Error('API响应格式错误：缺少 choices 字段');
       }
-      
-      const description = result.choices[0].message.content.trim();
+
+      const description = this.cleanDescription(result.choices[0].message.content);
       console.log(`✅ [素材分析] 图片分析完成: ${description.substring(0, 50)}...`);
-      
+
       return description;
-      
+
     } catch (error) {
       console.error(`❌ [素材分析] 图片分析失败:`, error.message);
-      
-      if (error.response) {
-        const status = error.response.status;
-        if (status === 401) {
-          throw new Error('API认证失败：请检查 ARK_API_KEY 是否正确');
-        } else if (status === 429) {
-          throw new Error('API请求频率超限：请稍后再试');
-        } else if (status === 400) {
-          throw new Error(`API请求参数错误: ${JSON.stringify(error.response.data)}`);
-        }
+
+      if (error.status) {
+        if (error.status === 401) throw new Error('API认证失败：请检查 ARK_API_KEY 是否正确');
+        if (error.status === 429) throw new Error('API请求频率超限：请稍后再试');
+        if (error.status === 503) throw new Error('AI 视觉服务暂时不可用，将跳过素材分析');
       }
-      
+
       throw error;
     }
   }
@@ -310,4 +290,3 @@ class AssetAnalysisService {
 }
 
 export default AssetAnalysisService;
-

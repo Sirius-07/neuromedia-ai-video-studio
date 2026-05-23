@@ -165,9 +165,9 @@ export const optimizeVideoWithAI = async (req, res) => {
     // 将视频URL转换为本地文件路径
     let videoPath = video_url;
     
-    // 处理本地服务器的URL（localhost:3000）
-    if (video_url.includes('localhost:3000/uploads/') || video_url.includes('127.0.0.1:3000/uploads/')) {
-      // 提取路径部分：http://localhost:3000/uploads/assets/xxx.mp4 -> /uploads/assets/xxx.mp4
+    // 处理本地服务器的URL（localhost:4300）
+    if (video_url.includes('localhost:4300/uploads/') || video_url.includes('127.0.0.1:4300/uploads/')) {
+      // 提取路径部分：http://localhost:4300/uploads/assets/xxx.mp4 -> /uploads/assets/xxx.mp4
       const urlObj = new URL(video_url);
       videoPath = path.join(process.cwd(), urlObj.pathname.replace(/^\//, ''));
       console.log('🔄 检测到本地URL，转换为本地路径:', videoPath);

@@ -63,10 +63,10 @@ app = FastAPI(
 
 # 允许的跨域来源（开发环境允许所有，生产环境应限制具体域名）
 origins = [
-    "http://localhost:3000",      # React 开发服务器
-    "http://localhost:5173",      # Vite 开发服务器
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173",
+    "http://localhost:4300",      # React 开发服务器
+    "http://localhost:4301",      # Vite 开发服务器
+    "http://127.0.0.1:4300",
+    "http://127.0.0.1:4301",
     "*",                          # 开发阶段允许所有来源
 ]
 

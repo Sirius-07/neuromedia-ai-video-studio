@@ -1,18 +1,22 @@
-import React, { useState, useRef, useEffect, useContext } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Monitor, Smartphone, Square, Tv, Plus, Check, Loader2 } from 'lucide-react';
 import { createProject, updateProject } from '../api/projectApi';
 import { InspirationProposal } from './InspirationModal';
-import { CollaborationContext } from './collaboration/CollaborationPanel';
-import { MEMBERS } from './collaboration/mockData';
+import {
+  buildCreationSettings,
+  type CreationAspectRatio,
+  type CreationIntent,
+  withCreationVisualSelection,
+} from '../types/creationIntent';
 
 // ── Static Data ───────────────────────────────────────────────────────────────
 
 const RATIOS = [
-  { id: '16:9', label: '横屏', icon: Monitor, desc: 'YouTube / 网页' },
+  { id: '16:9', label: '横屏', icon: Monitor, desc: '视频号 / 网页' },
   { id: '9:16', label: '竖屏', icon: Smartphone, desc: '抖音 / 短视频' },
-  { id: '1:1', label: '方形', icon: Square, desc: 'Instagram' },
+  { id: '1:1', label: '方形', icon: Square, desc: '社媒信息流' },
   { id: '4:3', label: '标准', icon: Tv, desc: '传统电视' },
 ];
 
@@ -37,8 +41,13 @@ export const StyleSelectionPage: React.FC = () => {
     userPrompt = '',
     uploadedAssets = [],
     generationMode = 'ai_generated',
-    proposal,
+    proposal: routeProposal,
+    inspirationProposal,
+    creationIntent,
+    needExpandScript = false,
+    isGenerating = false,
     aspectRatio: initialAspectRatio = '16:9',
+    artStyle: initialArtStyle = '',
     settingInput = '',
   } = (location.state || {}) as {
     projectId?: string | null;
@@ -47,73 +56,35 @@ export const StyleSelectionPage: React.FC = () => {
     uploadedAssets?: any[];
     generationMode?: string;
     proposal?: InspirationProposal;
+    inspirationProposal?: InspirationProposal;
+    creationIntent?: CreationIntent;
+    needExpandScript?: boolean;
+    isGenerating?: boolean;
     aspectRatio?: string;
+    artStyle?: string;
     settingInput?: string;
   };
 
-  const [selectedRatio, setSelectedRatio] = useState(initialAspectRatio);
-  const [selectedStyle, setSelectedStyle] = useState('');
+  const proposal = creationIntent?.selectedProposal || routeProposal || inspirationProposal;
+  const prompt = creationIntent?.prompt || userPrompt;
+  const assets = creationIntent?.uploadedAssets || uploadedAssets;
+  const mode = creationIntent?.generationMode || generationMode;
+  const [selectedRatio, setSelectedRatio] = useState(creationIntent?.aspectRatio || initialAspectRatio);
+  const [selectedStyle, setSelectedStyle] = useState(() => {
+    const style = creationIntent?.artStyle || initialArtStyle;
+    return ART_STYLES.some(option => option.id === style) ? style : '';
+  });
   const [customStyleFile, setCustomStyleFile] = useState<File | null>(null);
   const [customStylePreview, setCustomStylePreview] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const customInputRef = useRef<HTMLInputElement>(null);
 
-  const { injectEvent } = useContext(CollaborationContext);
-
-  const handleSelectRatio = (ratioId: string, ratioLabel: string) => {
+  const handleSelectRatio = (ratioId: string, _ratioLabel: string) => {
     setSelectedRatio(ratioId);
-    const operator = MEMBERS[0];
-    injectEvent(
-      {
-        id: `style_ratio_${Date.now()}`,
-        actionType: 'style_changed',
-        title: `画幅比例更改为 ${ratioId}`,
-        summary: `视频画幅从当前比例切换为 ${ratioId} ${ratioLabel}`,
-        operatorId: operator.id,
-        timestamp: new Date().toISOString(),
-        timeAgo: '刚刚',
-        impactRoles: ['director', 'editor'],
-        priority: 'low',
-        stage: 'style',
-      },
-      {
-        id: `sys_ratio_${Date.now()}`,
-        type: 'system',
-        systemType: 'version_saved',
-        authorId: operator.id,
-        description: `将画幅比例更新为 ${ratioId}`,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        date: 'today',
-      }
-    );
   };
 
-  const handleSelectStyle = (styleId: string, styleName: string) => {
+  const handleSelectStyle = (styleId: string, _styleName: string) => {
     setSelectedStyle(styleId);
-    const operator = MEMBERS[2]; // Jordan Wu – designer
-    injectEvent(
-      {
-        id: `style_art_${Date.now()}`,
-        actionType: 'style_changed',
-        title: `艺术风格选定：${styleName}`,
-        summary: `视觉风格已切换至「${styleName}」，将应用于全部分镜画面`,
-        operatorId: operator.id,
-        timestamp: new Date().toISOString(),
-        timeAgo: '刚刚',
-        impactRoles: ['director', 'designer'],
-        priority: 'medium',
-        stage: 'style',
-      },
-      {
-        id: `sys_style_${Date.now()}`,
-        type: 'system',
-        systemType: 'version_saved',
-        authorId: operator.id,
-        description: `艺术风格更新为「${styleName}」`,
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        date: 'today',
-      }
-    );
   };
 
   // Mark project as being on style-selection so sidebar can restore correctly
@@ -121,11 +92,13 @@ export const StyleSelectionPage: React.FC = () => {
     if (initialProjectId) {
       updateProject(initialProjectId, {
         settings: {
-          generationMode,
-          uploadedAssets,
+          ...(creationIntent ? buildCreationSettings(creationIntent) : {}),
+          generationMode: mode,
+          uploadedAssets: assets,
           inspirationMode: true,
           inspirationProposal: proposal,
           aspectRatio: selectedRatio,
+          artStyle: creationIntent?.artStyle || initialArtStyle || undefined,
           customScenes: scenes,
           customVisualStyle: settingInput.trim() || undefined,
           currentPage: 'style-selection',
@@ -151,16 +124,20 @@ export const StyleSelectionPage: React.FC = () => {
     setIsSubmitting(true);
 
     let finalProjectId = initialProjectId ?? null;
+    const updatedIntent = creationIntent
+      ? withCreationVisualSelection(creationIntent, selectedRatio as CreationAspectRatio, selectedStyle)
+      : null;
 
     try {
       if (!finalProjectId) {
         const result = await createProject({
           title: proposal?.title || '未命名项目',
-          description: userPrompt,
-          userPrompt,
+          description: prompt,
+          userPrompt: prompt,
           settings: {
-            generationMode,
-            uploadedAssets,
+            ...(updatedIntent ? buildCreationSettings(updatedIntent) : {}),
+            generationMode: updatedIntent?.generationMode || mode,
+            uploadedAssets: updatedIntent?.uploadedAssets || assets,
             inspirationMode: true,
             inspirationProposal: proposal,
             aspectRatio: selectedRatio,
@@ -174,8 +151,9 @@ export const StyleSelectionPage: React.FC = () => {
       } else {
         await updateProject(finalProjectId, {
           settings: {
-            generationMode,
-            uploadedAssets,
+            ...(updatedIntent ? buildCreationSettings(updatedIntent) : {}),
+            generationMode: updatedIntent?.generationMode || mode,
+            uploadedAssets: updatedIntent?.uploadedAssets || assets,
             inspirationMode: true,
             inspirationProposal: proposal,
             aspectRatio: selectedRatio,
@@ -196,9 +174,13 @@ export const StyleSelectionPage: React.FC = () => {
     navigate(finalProjectId ? `/storyboard?projectId=${finalProjectId}` : '/storyboard', {
       state: {
         projectId: finalProjectId,
-        userPrompt,
-        uploadedAssets,
-        generationMode,
+        creationIntent: updatedIntent || undefined,
+        inspirationProposal: updatedIntent?.selectedProposal || proposal,
+        needExpandScript,
+        isGenerating,
+        userPrompt: prompt,
+        uploadedAssets: updatedIntent?.uploadedAssets || assets,
+        generationMode: updatedIntent?.generationMode || mode,
         customScenes: scenes,
         aspectRatio: selectedRatio,
         artStyle: selectedStyle,
@@ -214,23 +196,29 @@ export const StyleSelectionPage: React.FC = () => {
   };
 
   const canConfirm = !!(selectedRatio && selectedStyle);
+  const selectionStatus = (() => {
+    if (!selectedRatio && !selectedStyle) return '请选择画幅和风格';
+    if (selectedRatio && !selectedStyle) return '已选画幅，还需选择风格';
+    if (!selectedRatio && selectedStyle) return '已选风格，还需选择画幅';
+    return '已选好，可以生成分镜';
+  })();
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto p-8 relative z-10 h-full">
-      <div className="max-w-5xl mx-auto w-full pb-28">
+    <div className="nm-flow-page nm-style-selection-page flex-1 flex flex-col overflow-y-auto overflow-x-hidden p-4 sm:p-8 relative z-10 h-full">
+      <div className="nm-selection-canvas max-w-5xl mx-auto w-full pb-24 sm:pb-28">
 
         {/* Title */}
-        <div className="text-center mb-16 mt-8">
+        <div className="nm-page-title text-center mb-12 sm:mb-16 mt-6 sm:mt-8">
           <h1 className="text-3xl font-light tracking-tight text-neutral-900 dark:text-white mb-3">
             选择你的视觉风格
           </h1>
-          <p className="text-neutral-500 dark:text-neutral-400">
-            为你的故事选择画幅比例和艺术方向。
+          <p className="text-neutral-500 dark:text-neutral-400 max-w-2xl mx-auto leading-6">
+            先选发布比例，再选画面风格。之后 AI 会生成分镜图。
           </p>
         </div>
 
         {/* ── Aspect Ratio ─────────────────────────────────── */}
-        <div className="mb-16">
+        <div className="nm-page-section mb-12 sm:mb-16">
           <h2 className="text-[11px] font-medium text-neutral-900 dark:text-neutral-300 mb-6 uppercase tracking-widest font-mono">
             画幅比例
           </h2>
@@ -247,9 +235,9 @@ export const StyleSelectionPage: React.FC = () => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleSelectRatio(r.id, r.label)}
-                  className={`relative p-6 rounded-2xl border cursor-pointer transition-all duration-300 flex flex-col items-center text-center gap-4 ${
+                  className={`nm-option-card relative p-6 rounded-2xl border cursor-pointer transition-all duration-300 flex flex-col items-center text-center gap-4 ${
                     isSelected
-                      ? 'bg-cyan-50 dark:bg-cyan-500/10 border-cyan-400 shadow-[0_0_30px_rgba(34,211,238,0.15)]'
+                      ? 'nm-option-card-selected bg-cyan-50 dark:bg-cyan-500/10 border-cyan-400 shadow-[0_0_30px_rgba(34,211,238,0.15)]'
                       : 'bg-white dark:bg-[#111]/30 border-neutral-200 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-[#111]/60 hover:border-cyan-200 dark:hover:border-white/20'
                   }`}
                 >
@@ -289,7 +277,7 @@ export const StyleSelectionPage: React.FC = () => {
         </div>
 
         {/* ── Art Style ─────────────────────────────────────── */}
-        <div>
+        <div className="nm-page-section">
           <h2 className="text-[11px] font-medium text-neutral-900 dark:text-neutral-300 mb-6 uppercase tracking-widest font-mono">
             艺术风格
           </h2>
@@ -305,9 +293,9 @@ export const StyleSelectionPage: React.FC = () => {
                   whileHover={{ scale: 1.03, zIndex: 10 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleSelectStyle(s.id, s.name)}
-                  className={`relative rounded-2xl overflow-hidden border cursor-pointer transition-all duration-300 group aspect-video ${
+                  className={`nm-style-option-card relative rounded-2xl overflow-hidden border cursor-pointer transition-all duration-300 group aspect-video ${
                     isSelected
-                      ? 'border-cyan-400 shadow-[0_0_30px_rgba(34,211,238,0.25)] ring-1 ring-cyan-400'
+                      ? 'nm-option-card-selected border-cyan-400 shadow-[0_0_30px_rgba(34,211,238,0.25)] ring-1 ring-cyan-400'
                       : 'border-neutral-200 dark:border-white/20 hover:border-cyan-400 dark:hover:border-white/30'
                   }`}
                 >
@@ -341,7 +329,7 @@ export const StyleSelectionPage: React.FC = () => {
 
             {/* Custom Style Upload */}
             <label
-              className={`relative rounded-2xl border-2 border-dashed cursor-pointer transition-all flex flex-col items-center justify-center gap-3 aspect-video overflow-hidden ${
+              className={`nm-style-option-card nm-custom-style-card relative rounded-2xl border-2 border-dashed cursor-pointer transition-all flex flex-col items-center justify-center gap-3 aspect-video overflow-hidden ${
                 customStylePreview
                   ? 'border-cyan-400 shadow-[0_0_30px_rgba(34,211,238,0.25)]'
                   : 'border-neutral-300 dark:border-white/20 hover:border-cyan-400 dark:hover:border-white/30 bg-white dark:bg-transparent hover:bg-neutral-50 dark:hover:bg-white/5 text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
@@ -378,14 +366,12 @@ export const StyleSelectionPage: React.FC = () => {
       </div>
 
       {/* ── Bottom Action Bar ────────────────────────────── */}
-      <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-neutral-50 via-neutral-50/90 dark:from-[#050505] dark:via-[#050505]/90 to-transparent flex items-center justify-between pointer-events-none">
-        <div className="text-sm text-neutral-500 dark:text-neutral-500 pointer-events-auto font-mono text-xs">
-          {!selectedRatio && !selectedStyle && 'SELECT RATIO + STYLE'}
-          {selectedRatio && !selectedStyle && '✓ RATIO SELECTED · SELECT STYLE'}
-          {!selectedRatio && selectedStyle && '✓ STYLE SELECTED · SELECT RATIO'}
+      <div className="nm-day-action-bar sticky sm:absolute bottom-0 left-0 right-0 -mx-4 sm:mx-0 mt-10 p-4 sm:p-6 bg-gradient-to-t from-neutral-50 via-neutral-50/95 dark:from-[#050505] dark:via-[#050505]/95 to-transparent flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pointer-events-none">
+        <div className="pointer-events-auto font-mono text-[11px] sm:text-xs text-center sm:text-left text-neutral-500 dark:text-neutral-500">
           {canConfirm && (
-            <span className="text-cyan-500">✓ READY TO GENERATE</span>
+            <span className="text-cyan-500">✓ {selectionStatus}</span>
           )}
+          {!canConfirm && selectionStatus}
         </div>
 
         <motion.button
@@ -393,7 +379,7 @@ export const StyleSelectionPage: React.FC = () => {
           whileTap={canConfirm ? { scale: 0.98 } : {}}
           onClick={handleConfirm}
           disabled={!canConfirm || isSubmitting}
-          className={`pointer-events-auto flex items-center gap-2 px-10 py-3.5 rounded-xl font-medium transition-all shadow-lg border border-white/10 font-mono tracking-wider text-sm ${
+          className={`pointer-events-auto flex w-full sm:w-auto items-center justify-center gap-2 px-4 sm:px-10 py-3 sm:py-3.5 rounded-xl font-medium transition-all shadow-lg border border-white/10 font-mono tracking-wider text-[13px] sm:text-sm whitespace-nowrap ${
             canConfirm && !isSubmitting
               ? 'bg-gradient-to-r from-cyan-500 to-violet-600 text-white shadow-cyan-500/20 cursor-pointer'
               : 'bg-neutral-200 dark:bg-white/10 text-neutral-400 cursor-not-allowed shadow-none'
@@ -402,11 +388,11 @@ export const StyleSelectionPage: React.FC = () => {
           {isSubmitting ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              GENERATING...
+              正在生成分镜...
             </>
           ) : (
             <>
-              GENERATE STORYBOARD
+              生成分镜
               <Check size={18} />
             </>
           )}

@@ -1,3 +1,5 @@
+import { apiUrl } from '../config/api';
+
 /**
  * 脚本生成 API 模块
  * 
@@ -5,7 +7,7 @@
  */
 
 // API 基础地址（Node.js 后端）
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = apiUrl('');
 
 // ============================================================
 // 类型定义
@@ -17,6 +19,7 @@ export type FileType = 'image' | 'video';
 /** 素材信息 */
 export interface AssetInfo {
   file_path: string;
+  name?: string;
   url?: string; // 素材URL（用于直接访问）
   file_type: FileType;
   description: string | null;

@@ -15,7 +15,7 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const API_BASE_URL = 'http://localhost:3000/api/v1';
+const API_BASE_URL = 'http://localhost:4300/api/v1';
 
 async function testMusicCreationFlow() {
   console.log('\n' + '='.repeat(80));
@@ -29,7 +29,7 @@ async function testMusicCreationFlow() {
     console.log('【测试1】检查后端服务...\n');
     
     try {
-      const healthResponse = await axios.get('http://localhost:3000/health', {
+      const healthResponse = await axios.get('http://localhost:4300/health', {
         timeout: 5000
       });
       console.log('✅ 后端服务运行正常:', healthResponse.data.message);
@@ -85,7 +85,7 @@ async function testMusicCreationFlow() {
         const mp4Files = files.filter(f => f.endsWith('.mp4')).slice(0, 2); // 最多取2个视频
         
         for (const file of mp4Files) {
-          const videoUrl = `http://localhost:3000/uploads/${path.relative(path.join(__dirname, 'uploads'), path.join(dir, file)).replace(/\\/g, '/')}`;
+          const videoUrl = `http://localhost:4300/uploads/${path.relative(path.join(__dirname, 'uploads'), path.join(dir, file)).replace(/\\/g, '/')}`;
           testScenes.push({
             videoUrl: videoUrl
           });

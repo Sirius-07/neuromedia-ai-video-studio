@@ -6,7 +6,7 @@
 import axios from 'axios';
 
 const VIDEO_URL = 'https://1926289158.tos-cn-guangzhou.volces.com/a1.mp4';
-const API_BASE = 'http://localhost:3000/api/v1/soundtrack';
+const API_BASE = 'http://localhost:4300/api/v1/soundtrack';
 
 // 颜色输出
 const colors = {

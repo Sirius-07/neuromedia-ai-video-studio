@@ -6,6 +6,18 @@ import { toPublicUrl } from '../config/serverConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const VIDEO_FILE_EXTENSIONS = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'];
+
+function isLikelyVideoUrl(url = '') {
+  const pathname = String(url).split('?')[0].toLowerCase();
+  return VIDEO_FILE_EXTENSIONS.some(extension => pathname.endsWith(extension));
+}
+
+function getExportVideoSource(scene = {}) {
+  if (scene.videoUrl) return scene.videoUrl;
+  if (isLikelyVideoUrl(scene.assetUrl)) return scene.assetUrl;
+  return null;
+}
 
 /**
  * 导出粗剪视频控制器
@@ -29,11 +41,11 @@ export const exportRoughCut = async (req, res) => {
     const validScenes = scenes
       .filter(scene => {
         // 保留有视频的分镜：AI生成(videoUrl) 或 实拍素材(assetUrl)
-        return scene.videoUrl || scene.assetUrl;
+        return Boolean(getExportVideoSource(scene));
       })
       .map((scene, index) => {
         // 优先使用 videoUrl (AI生成)，如果没有则使用 assetUrl (实拍素材)
-        const url = scene.videoUrl || scene.assetUrl;
+        const url = getExportVideoSource(scene);
         
         console.log(`  分镜 ${index + 1}: ${scene.type === 'ai' ? 'AI生成' : '实拍素材'} - ${url}`);
         if (scene.postProcessing) {
@@ -160,11 +172,11 @@ export const exportRoughCutSimple = async (req, res) => {
     const validScenes = scenes
       .filter(scene => {
         // 保留有视频的分镜：AI生成(videoUrl) 或 实拍素材(assetUrl)
-        return scene.videoUrl || scene.assetUrl;
+        return Boolean(getExportVideoSource(scene));
       })
       .map((scene, index) => {
         // 优先使用 videoUrl (AI生成)，如果没有则使用 assetUrl (实拍素材)
-        const url = scene.videoUrl || scene.assetUrl;
+        const url = getExportVideoSource(scene);
         
         console.log(`  分镜 ${index + 1}: ${scene.type === 'ai' ? 'AI生成' : '实拍素材'} - ${url}`);
         if (scene.postProcessing) {
@@ -236,8 +248,6 @@ export const exportRoughCutSimple = async (req, res) => {
     });
   }
 };
-
-
 
 
 

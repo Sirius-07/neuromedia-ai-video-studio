@@ -23,17 +23,70 @@ import type {
   StoryboardAction,
   DirectorMessage,
   DirectorPanelActionStatus,
+  AskUserDirectorAction,
+  StoryboardAssistantResponse,
+  ShotFieldPatch,
 }                                    from "./types";
-import { buildStoryboardContext }    from "./buildStoryboardContext";
+import {
+  buildStoryboardContext,
+  type StoryboardConversationTurn,
+}                                    from "./buildStoryboardContext";
 import {
   callStoryboardAssistantChat,
   type StoryboardContext,
 }                                    from "../../../api/storyboardAssistantApi";
 import { AssistantApiError }         from "../../assistant/api/callAssistantChat";
 import {
+  createLocalStoryboardAssistantResponse,
+}                                    from "./agentIntelligence";
+import {
   applyStoryboardActions,
   extractRegenerateTargets,
 }                                    from "./applyStoryboardActions";
+
+export interface StoryboardAssistantActionPreview {
+  actionIntent:     string;
+  actions:          StoryboardAction[];
+  affectedShotIds:  number[];
+  fields:           string[];
+  warnings?:        string[];
+}
+
+export interface StoryboardAssistantActionsAppliedEvent {
+  type:             "applied";
+  actionIntent:     string;
+  actions:          StoryboardAction[];
+  appliedActions:   StoryboardAction[];
+  affectedShotIds:  number[];
+  fields:           string[];
+  snapshotBefore:   Scene[];
+  nextScenes:       Scene[];
+  warnings?:        string[];
+}
+
+export interface StoryboardAssistantActionsUndoneEvent {
+  type:             "undone";
+  actionIntent:     string;
+  actions:          StoryboardAction[];
+  appliedActions:   StoryboardAction[];
+  affectedShotIds:  number[];
+  fields:           string[];
+  snapshotBefore:   Scene[];
+  nextScenes:       Scene[];
+  restoredScenes:   Scene[];
+  warnings?:        string[];
+}
+
+export type StoryboardAssistantActionsEvent =
+  | StoryboardAssistantActionsAppliedEvent
+  | StoryboardAssistantActionsUndoneEvent;
+
+export type StoryboardAssistantUndoState = Omit<
+  StoryboardAssistantActionsAppliedEvent,
+  "type"
+>;
+
+export const UNDO_LAST_STORYBOARD_ACTION_LABEL = "撤销刚才修改";
 
 // ─────────────────────────────────────────────────────────────
 // 内部类型
@@ -72,6 +125,8 @@ export interface UseStoryboardAssistantOptions {
   projectId?:           string;
   /** 最近一次操作摘要（注入 context，供 AI 感知对话连续性） */
   lastActionSummary?:   string;
+  onPreviewActionsChange?: (preview: StoryboardAssistantActionPreview | null) => void;
+  onActionsApplied?:    (event: StoryboardAssistantActionsEvent) => void;
 }
 
 export interface UseStoryboardAssistantReturn {
@@ -96,6 +151,7 @@ export interface UseStoryboardAssistantReturn {
   sendMessage:     (text: string) => void;
   confirmActions:  () => void;
   rejectActions:   () => void;
+  undoLastApplied: () => void;
   reset:           () => void;
 }
 
@@ -131,6 +187,194 @@ function makeErrorMsg(content: string): DirectorMessage {
   return { id: makeId(), role: "assistant", content, timestamp: new Date().toISOString(), status: "error" };
 }
 
+function getAskUserActions(
+  response: StoryboardAssistantResponse
+): AskUserDirectorAction[] {
+  return response.actions.filter(
+    (action): action is AskUserDirectorAction => action.type === "ask_user"
+  );
+}
+
+function uniqStrings(items: Array<string | undefined>): string[] {
+  return Array.from(new Set(items.map((item) => item?.trim()).filter(Boolean) as string[]));
+}
+
+function uniqueNumbers(items: Array<number | undefined>): number[] {
+  return Array.from(new Set(items.filter((item): item is number => typeof item === "number")));
+}
+
+function getPatchFields(patch: ShotFieldPatch): string[] {
+  return Object.keys(patch).filter((field) => field !== "mode");
+}
+
+function collectActionFields(actions: StoryboardAction[]): string[] {
+  const fields = actions.flatMap((action) => {
+    switch (action.type) {
+      case "update_shot_field":
+        return getPatchFields(action.patch);
+      case "bulk_update_shots":
+        return action.items.flatMap((item) => getPatchFields(item.patch));
+      case "regenerate_shot":
+        return action.target === "image"
+          ? ["generationStatus", "selectedImageIndex"]
+          : ["generationStatus", "videoUrl"];
+      case "regenerate_storyboard":
+        return ["generationStatus", "selectedImageIndex", "videoUrl"];
+      case "ask_user":
+        return [];
+    }
+  });
+  return uniqStrings(fields);
+}
+
+function collectPreviewAffectedShotIds(actions: StoryboardAction[], scenes: Scene[]): number[] {
+  return uniqueNumbers(
+    actions.flatMap((action) => {
+      switch (action.type) {
+        case "update_shot_field":
+          return [action.shotId];
+        case "bulk_update_shots":
+          return action.items.map((item) => item.shotId);
+        case "regenerate_shot":
+          return [action.shotId];
+        case "regenerate_storyboard":
+          return scenes.map((scene) => scene.id);
+        case "ask_user":
+          return [];
+      }
+    })
+  );
+}
+
+export function buildStoryboardActionsPreview({
+  actionIntent,
+  actions,
+  scenes,
+  warnings,
+}: {
+  actionIntent: string;
+  actions: StoryboardAction[];
+  scenes: Scene[];
+  warnings?: string[];
+}): StoryboardAssistantActionPreview {
+  return {
+    actionIntent,
+    actions,
+    affectedShotIds: collectPreviewAffectedShotIds(actions, scenes),
+    fields: collectActionFields(actions),
+    ...(warnings?.length ? { warnings } : {}),
+  };
+}
+
+export function buildStoryboardActionsAppliedEvent({
+  actionIntent,
+  actions,
+  appliedActions,
+  affectedShotIds,
+  fields,
+  snapshotBefore,
+  nextScenes,
+  warnings,
+}: StoryboardAssistantUndoState): StoryboardAssistantActionsAppliedEvent {
+  return {
+    type: "applied",
+    actionIntent,
+    actions,
+    appliedActions,
+    affectedShotIds,
+    fields,
+    snapshotBefore,
+    nextScenes,
+    ...(warnings?.length ? { warnings } : {}),
+  };
+}
+
+export function consumeUndoSnapshot(
+  undoState: StoryboardAssistantUndoState | null
+): {
+  event: StoryboardAssistantActionsUndoneEvent | null;
+  nextUndoState: StoryboardAssistantUndoState | null;
+} {
+  if (!undoState) {
+    return { event: null, nextUndoState: null };
+  }
+
+  return {
+    event: {
+      type: "undone",
+      ...undoState,
+      restoredScenes: undoState.snapshotBefore,
+    },
+    nextUndoState: null,
+  };
+}
+
+function isUndoLastAppliedRequest(text: string): boolean {
+  const normalized = text.replace(/\s+/g, "");
+  return normalized === UNDO_LAST_STORYBOARD_ACTION_LABEL || normalized === "撤销";
+}
+
+function buildAssistantReply(response: StoryboardAssistantResponse): string {
+  const questions = getAskUserActions(response);
+  if (questions.length === 0) return response.reply;
+
+  const lines = [response.reply.trim()];
+  for (const question of questions) {
+    if (!response.reply.includes(question.question)) {
+      lines.push(question.question);
+    }
+    if (question.hypothesis) {
+      lines.push(`当前判断：${question.hypothesis}`);
+    }
+  }
+  return lines.filter(Boolean).join("\n\n");
+}
+
+function buildAssistantSuggestions(response: StoryboardAssistantResponse): string[] {
+  const questionOptions = getAskUserActions(response).flatMap(
+    (question) => question.options ?? []
+  );
+  return uniqStrings([...questionOptions, ...(response.suggestions ?? [])]).slice(0, 5);
+}
+
+function summarizeAppliedActions(
+  appliedActions: StoryboardAction[],
+  affectedShotIds: number[]
+): string {
+  if (appliedActions.length === 0) {
+    return "这次没有可应用的修改，当前分镜保持不变。";
+  }
+  const affectedText =
+    affectedShotIds.length > 0 ? `，影响 ${affectedShotIds.length} 个分镜` : "";
+  return `已应用 ${appliedActions.length} 项修改${affectedText}。`;
+}
+
+function buildPostApplySuggestions(mode: StoryboardMode): string[] {
+  return mode === "image"
+    ? [UNDO_LAST_STORYBOARD_ACTION_LABEL, "继续检查下一镜", "统一全片视觉风格", "现在生成图片"]
+    : [UNDO_LAST_STORYBOARD_ACTION_LABEL, "继续检查下一镜", "统一全片运动节奏", "现在生成视频"];
+}
+
+function isConversationRole(
+  message: DirectorMessage
+): message is DirectorMessage & { role: "user" | "assistant" } {
+  return message.role === "user" || message.role === "assistant";
+}
+
+function toConversationHistory(messages: DirectorMessage[]): StoryboardConversationTurn[] {
+  return messages
+    .filter(isConversationRole)
+    .filter((message) => message.status !== "error")
+    .slice(-8)
+    .map((message) => ({
+      role: message.role,
+      content: message.content.slice(0, 420),
+      ...(message.suggestions?.length
+        ? { suggestions: message.suggestions.slice(0, 5) }
+        : {}),
+    }));
+}
+
 // ─────────────────────────────────────────────────────────────
 // Hook
 // ─────────────────────────────────────────────────────────────
@@ -145,6 +389,8 @@ export function useStoryboardAssistant({
   onRegenerateAll,
   projectId      = "",
   lastActionSummary,
+  onPreviewActionsChange,
+  onActionsApplied,
 }: UseStoryboardAssistantOptions): UseStoryboardAssistantReturn {
 
   const [messages,        setMessages]        = useState<DirectorMessage[]>([]);
@@ -152,6 +398,7 @@ export function useStoryboardAssistant({
   const [errorMessage,    setErrorMessage]    = useState<string | null>(null);
   const [pendingResponse, setPendingResponse] = useState<PendingDirectorState | null>(null);
   const [inputDraft,      setInputDraft]      = useState("");
+  const lastAppliedRef = useRef<StoryboardAssistantUndoState | null>(null);
 
   // ── refs（避免异步回调读到过期值）────────────────────────────
 
@@ -163,24 +410,111 @@ export function useStoryboardAssistant({
   const pendingRef = useRef<PendingDirectorState | null>(null);
   useEffect(() => { pendingRef.current = pendingResponse; }, [pendingResponse]);
 
+  /** 始终指向最新消息，供下一轮请求带上多轮上下文 */
+  const messagesRef = useRef<DirectorMessage[]>(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
   // ── appendMessage ─────────────────────────────────────────
 
   const appendMessage = useCallback((msg: DirectorMessage) => {
-    setMessages((prev) => [...prev, msg]);
+    setMessages((prev) => {
+      const next = [...prev, msg];
+      messagesRef.current = next;
+      return next;
+    });
   }, []);
 
   // ── buildContext ──────────────────────────────────────────
   // 依赖除 scenes 外的所有字段；scenes 通过 ref 访问保证最新
 
-  const buildContext = useCallback((): StoryboardContext => {
+  const buildContext = useCallback((conversationSeed: DirectorMessage[] = messagesRef.current): StoryboardContext => {
     return buildStoryboardContext(
       scenesRef.current,
       mode,
       selectedShotId,
       projectTitle,
-      { projectId, lastActionSummary }
+      {
+        projectId,
+        lastActionSummary,
+        conversation: toConversationHistory(conversationSeed),
+      }
     );
   }, [mode, selectedShotId, projectTitle, projectId, lastActionSummary]);
+
+  const handleAssistantResponse = useCallback((
+    response: StoryboardAssistantResponse,
+    parseOk: boolean,
+    meta?: DirectorMessage["meta"]
+  ) => {
+    const assistantSuggestions = buildAssistantSuggestions(response);
+
+    appendMessage(
+      makeAssistantMsg(buildAssistantReply(response), assistantSuggestions, {
+        actionCount: response.actions.length,
+        parseOk,
+        ...meta,
+      })
+    );
+
+    // ask_user 类型不需要确认，过滤后只保留真正需要执行的 action
+    const confirmableActions = response.actions.filter(
+      (a) => a.type !== "ask_user"
+    );
+
+    if (confirmableActions.length > 0) {
+      // 保守策略：有可执行 actions 一律走确认流程，避免静默修改用户数据。
+      const pending: PendingDirectorState = {
+        id:             makeId(),
+        intent:         response.intent,
+        actions:        confirmableActions,
+        warnings:       response.warnings,
+        snapshotBefore: [...scenesRef.current],
+      };
+      pendingRef.current = pending;
+      setPendingResponse(pending);
+      onPreviewActionsChange?.(
+        buildStoryboardActionsPreview({
+          actionIntent: response.intent,
+          actions: confirmableActions,
+          scenes: scenesRef.current,
+          warnings: response.warnings,
+        })
+      );
+      setActionStatus("awaiting-confirm");
+      return;
+    }
+
+    // 无可执行 actions（纯 ask_user 或纯问答），直接回到 idle，让用户继续输入回复
+    onPreviewActionsChange?.(null);
+    setActionStatus("idle");
+  }, [appendMessage, onPreviewActionsChange]);
+
+  const undoLastApplied = useCallback(() => {
+    const { event, nextUndoState } = consumeUndoSnapshot(lastAppliedRef.current);
+    lastAppliedRef.current = nextUndoState;
+    if (!event) {
+      appendMessage(
+        makeAssistantMsg(
+          "当前没有可撤销的 Agent 修改。",
+          mode === "image"
+            ? ["继续检查下一镜", "统一全片视觉风格", "现在生成图片"]
+            : ["继续检查下一镜", "统一全片运动节奏", "现在生成视频"]
+        )
+      );
+      return;
+    }
+
+    onScenesChange(event.restoredScenes);
+    onPreviewActionsChange?.(null);
+    onActionsApplied?.(event);
+    pendingRef.current = null;
+    setPendingResponse(null);
+    setActionStatus("idle");
+    setErrorMessage(null);
+    appendMessage(
+      makeAssistantMsg("已撤销刚才修改，分镜已恢复到应用前的状态。")
+    );
+  }, [appendMessage, mode, onActionsApplied, onPreviewActionsChange, onScenesChange]);
 
   // ── sendMessage ───────────────────────────────────────────
 
@@ -190,47 +524,37 @@ export function useStoryboardAssistant({
     // 思考中/应用中不允许再发送
     if (actionStatus === "thinking" || actionStatus === "applying") return;
 
-    appendMessage(makeUserMsg(trimmed));
+    if (isUndoLastAppliedRequest(trimmed)) {
+      appendMessage(makeUserMsg(trimmed));
+      setInputDraft("");
+      undoLastApplied();
+      return;
+    }
+
+    const userMessage = makeUserMsg(trimmed);
+    const conversationSeed = [...messagesRef.current, userMessage];
+    appendMessage(userMessage);
     setInputDraft("");
     setErrorMessage(null);
+    onPreviewActionsChange?.(null);
     setPendingResponse(null);
     setActionStatus("thinking");
 
+    const context = buildContext(conversationSeed);
+
     try {
-      const context = buildContext();
       const { parsed, parseOk } = await callStoryboardAssistantChat(trimmed, context);
-      const response = parsed.response;
-
-      // 将 assistant reply 加入消息流，附带 parseOk 元信息供调试
-      appendMessage(
-        makeAssistantMsg(response.reply, response.suggestions, {
-          actionCount: response.actions.length,
-          parseOk,
-        })
-      );
-
-      // ask_user 类型不需要确认，过滤后只保留真正需要执行的 action
-      const confirmableActions = response.actions.filter(
-        (a) => a.type !== "ask_user"
-      );
-
-      if (confirmableActions.length > 0) {
-        // MVP 保守策略：有可执行 actions 一律走确认流程，避免静默修改用户数据。
-        const pending: PendingDirectorState = {
-          id:             makeId(),
-          intent:         response.intent,
-          actions:        confirmableActions,
-          warnings:       response.warnings,
-          snapshotBefore: [...scenesRef.current],
-        };
-        setPendingResponse(pending);
-        setActionStatus("awaiting-confirm");
-      } else {
-        // 无可执行 actions（纯 ask_user 或纯问答），直接回到 idle，让用户继续输入回复
-        setActionStatus("idle");
-      }
+      handleAssistantResponse(parsed.response, parseOk);
 
     } catch (err) {
+      const localResponse = createLocalStoryboardAssistantResponse(trimmed, context);
+      if (localResponse) {
+        handleAssistantResponse(localResponse, false, {
+          localFallback: true,
+        });
+        return;
+      }
+
       const msg =
         err instanceof AssistantApiError
           ? err.message
@@ -239,7 +563,7 @@ export function useStoryboardAssistant({
       setActionStatus("error");
       appendMessage(makeErrorMsg(msg));
     }
-  }, [actionStatus, appendMessage, buildContext]);
+  }, [actionStatus, appendMessage, buildContext, handleAssistantResponse, onPreviewActionsChange, undoLastApplied]);
 
   // ── confirmActions ────────────────────────────────────────
 
@@ -250,7 +574,7 @@ export function useStoryboardAssistant({
     setActionStatus("applying");
 
     // 应用 actions，读取最新 scenes（通过 ref，不依赖 state 快照）
-    const { nextScenes, warnings, appliedActions } =
+    const { nextScenes, warnings, appliedActions, affectedShotIds } =
       applyStoryboardActions(scenesRef.current, pending.actions);
 
     // 回传给父组件
@@ -267,40 +591,76 @@ export function useStoryboardAssistant({
       shotRegenerates.forEach((a) => onRegenerateShot(a.shotId));
     }
 
-    // 若有警告，以 assistant 消息形式告知用户
+    // 应用完成后继续给用户可选下一步，让对话自然进入下一轮。
     const allWarnings = [
       ...(pending.warnings ?? []),
       ...warnings,
     ];
-    if (allWarnings.length > 0) {
-      appendMessage(
-        makeAssistantMsg(`操作已应用。注意：\n${allWarnings.join("\n")}`)
-      );
-    }
+    const undoState: StoryboardAssistantUndoState = {
+      actionIntent: pending.intent,
+      actions: pending.actions,
+      appliedActions,
+      affectedShotIds,
+      fields: collectActionFields(appliedActions),
+      snapshotBefore: pending.snapshotBefore,
+      nextScenes,
+      warnings: allWarnings,
+    };
+    lastAppliedRef.current = undoState;
+    onPreviewActionsChange?.(null);
+    onActionsApplied?.(buildStoryboardActionsAppliedEvent(undoState));
 
+    const summary = summarizeAppliedActions(appliedActions, affectedShotIds);
+    appendMessage(
+      makeAssistantMsg(
+        allWarnings.length > 0
+          ? `${summary}\n\n注意：\n${allWarnings.join("\n")}`
+          : summary,
+        buildPostApplySuggestions(mode),
+        {
+          actionCount: appliedActions.length,
+          affectedShotIds,
+        }
+      )
+    );
+
+    pendingRef.current = null;
     setPendingResponse(null);
     setActionStatus("idle");
     setErrorMessage(null);
-  }, [onScenesChange, onRegenerateShot, onRegenerateAll, appendMessage]);
+  }, [onScenesChange, onRegenerateShot, onRegenerateAll, appendMessage, mode, onActionsApplied, onPreviewActionsChange]);
 
   // ── rejectActions ─────────────────────────────────────────
 
   const rejectActions = useCallback(() => {
+    pendingRef.current = null;
+    onPreviewActionsChange?.(null);
     setPendingResponse(null);
     setActionStatus("idle");
     setErrorMessage(null);
-    // 消息历史保留，不清空
-  }, []);
+    appendMessage(
+      makeAssistantMsg(
+        "已取消这次建议，分镜没有被修改。",
+        mode === "image"
+          ? ["换一个视觉方向", "只优化选中分镜", "先做全局审片"]
+          : ["换一个节奏方向", "只优化选中分镜", "先检查运动衔接"]
+      )
+    );
+  }, [appendMessage, mode, onPreviewActionsChange]);
 
   // ── reset ─────────────────────────────────────────────────
 
   const reset = useCallback(() => {
     setMessages([]);
+    messagesRef.current = [];
+    pendingRef.current = null;
+    lastAppliedRef.current = null;
+    onPreviewActionsChange?.(null);
     setPendingResponse(null);
     setActionStatus("idle");
     setErrorMessage(null);
     setInputDraft("");
-  }, []);
+  }, [onPreviewActionsChange]);
 
   // ── return ────────────────────────────────────────────────
 
@@ -315,6 +675,7 @@ export function useStoryboardAssistant({
     sendMessage,
     confirmActions,
     rejectActions,
+    undoLastApplied,
     reset,
   };
 }

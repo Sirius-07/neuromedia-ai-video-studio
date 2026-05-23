@@ -1,5 +1,5 @@
 // storyboard/assistant/StoryboardActionPreview.tsx
-// AI Director 建议操作的 diff 预览组件
+// AI 分镜助手建议操作的 diff 预览组件
 // 在用户确认前展示结构化的"旧值 → 新值"对比，风格与 ScriptAssistantActionPreview 保持一致
 
 import React, { useState } from "react";
@@ -79,9 +79,9 @@ const ACTION_META: Record<StoryboardAction["type"], ActionMeta> = {
   bulk_update_shots: {
     label:  "批量修改分镜",
     icon:   Layers,
-    color:  "text-sky-400",
-    border: "border-sky-500/20",
-    bg:     "bg-sky-500/5",
+    color:  "text-cyan-400",
+    border: "border-cyan-500/20",
+    bg:     "bg-cyan-500/5",
   },
   regenerate_shot: {
     label:  "重新生成分镜",
@@ -111,10 +111,14 @@ const ACTION_META: Record<StoryboardAction["type"], ActionMeta> = {
 // 工具函数
 // ─────────────────────────────────────────────────────────────
 
-/** 根据 shotId 在 scenes 中查找，返回"Shot N"标签；找不到时降级显示 id */
+/** 根据 shotId 在 scenes 中查找，返回"分镜 N"标签；找不到时降级显示 id */
 function getShotLabel(scenes: Scene[], shotId: number): string {
   const idx = scenes.findIndex((s) => s.id === shotId);
-  return idx === -1 ? `Shot #${shotId}` : `Shot ${idx + 1}`;
+  return idx === -1 ? `分镜 ${shotId}` : `分镜 ${idx + 1}`;
+}
+
+function getModeLabel(mode: "image" | "video"): string {
+  return mode === "image" ? "图片" : "视频";
 }
 
 /** 从 scene 中读取某字段的当前值（对特殊嵌套字段做兼容处理） */
@@ -180,7 +184,7 @@ function getActionSummary(action: StoryboardAction, scenes: Scene[]): string {
       return `${getShotLabel(scenes, action.shotId)} · 重新生成${target}`;
     }
     case "regenerate_storyboard":
-      return `全部 ${scenes.length} 个分镜 · 重新生成（${action.mode} 模式）`;
+      return `全部 ${scenes.length} 个分镜 · 重新生成（${getModeLabel(action.mode)}模式）`;
     case "ask_user":
       return action.question.length > 36
         ? action.question.slice(0, 36) + "…"
@@ -206,31 +210,37 @@ function DiffRow({
   const label   = FIELD_LABELS[field] ?? field;
   const isEmpty = oldVal === "未填写";
   // 长文本截断阈值
-  const truncate = (s: string, max = 28) =>
+  const truncate = (s: string, max = 72) =>
     s.length > max ? s.slice(0, max) + "…" : s;
 
   return (
-    <div className="flex items-start gap-2 text-[10px] leading-relaxed">
+    <div className="rounded-md border border-white/[0.06] bg-white/[0.025] px-2 py-1.5 text-[10px] leading-relaxed">
       {/* 字段名 */}
-      <span className="w-16 shrink-0 text-neutral-600">{label}</span>
+      <div className="mb-1 flex items-center gap-1.5 text-neutral-500">
+        <span className="shrink-0">{label}</span>
+        <ArrowRight size={10} className="text-neutral-700 shrink-0" />
+        <span className="text-neutral-600">更新</span>
+      </div>
 
       {/* 旧值 */}
-      <span
-        className={`max-w-[80px] truncate shrink-0 ${
-          isEmpty ? "text-neutral-700 italic" : "text-neutral-500 line-through"
-        }`}
-        title={oldVal}
-      >
-        {truncate(oldVal)}
-      </span>
+      <div className="grid gap-1">
+        <span
+          className={`min-w-0 rounded bg-black/20 px-2 py-1 break-words [overflow-wrap:anywhere] ${
+            isEmpty ? "text-neutral-700 italic" : "text-neutral-500 line-through"
+          }`}
+          title={oldVal}
+        >
+          {truncate(oldVal)}
+        </span>
 
-      {/* 箭头 */}
-      <ArrowRight size={10} className="text-neutral-700 mt-0.5 shrink-0" />
-
-      {/* 新值 */}
-      <span className="text-neutral-200 break-all" title={newVal}>
-        {truncate(newVal, 48)}
-      </span>
+        {/* 新值 */}
+        <span
+          className="min-w-0 rounded border border-cyan-500/15 bg-cyan-500/[0.06] px-2 py-1 text-neutral-100 break-words [overflow-wrap:anywhere]"
+          title={newVal}
+        >
+          {truncate(newVal)}
+        </span>
+      </div>
     </div>
   );
 }

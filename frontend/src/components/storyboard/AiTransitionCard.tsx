@@ -12,6 +12,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { extractLastFrame, extractFirstFrame } from '../../utils/videoFrameExtractor';
 import { getProxiedImageUrl } from '../../utils/imageProxy';
+import { apiUrl, proxyVideoUrl } from '../../config/api';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -66,7 +67,7 @@ export const AiTransitionCard: React.FC<AiTransitionCardProps> = ({
     if (originalUrl.startsWith('data:') || originalUrl.startsWith('blob:')) {
       return originalUrl;
     }
-    return `http://localhost:3000/api/v1/proxy/video?url=${encodeURIComponent(originalUrl)}`;
+    return proxyVideoUrl(originalUrl);
   };
 
   // 自动提取前一个场景的最后一帧（视频）或直接使用图片
@@ -200,7 +201,7 @@ export const AiTransitionCard: React.FC<AiTransitionCardProps> = ({
       // 调用AI模型生成转场提示词（包含图片分析）
       console.log('📤 [转场卡片] 发送请求到AI服务...');
       
-      const response = await fetch('http://localhost:3000/api/v1/transition/generate-prompt', {
+      const response = await fetch(apiUrl('/api/v1/transition/generate-prompt'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

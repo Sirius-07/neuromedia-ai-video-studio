@@ -48,6 +48,12 @@ export interface VideoContextShot {
   narration: string | null;
 }
 
+export interface StoryboardConversationTurn {
+  role: "user" | "assistant";
+  content: string;
+  suggestions?: string[];
+}
+
 // ─────────────────────────────────────────────────────────────
 // Context Payload 类型（发送给 AI API 的最终 context 对象）
 // ─────────────────────────────────────────────────────────────
@@ -85,6 +91,8 @@ export interface ImageStoryboardContextPayload {
   shots: ImageContextShot[];
   /** 最近一次操作摘要（可选，供 AI 感知对话连续性） */
   lastActionSummary?: string;
+  /** 最近多轮对话摘要（可选，供 AI 理解用户选择和上下文） */
+  conversation?: StoryboardConversationTurn[];
 }
 
 /** Video 模式 context payload */
@@ -107,6 +115,7 @@ export interface VideoStoryboardContextPayload {
   modeSchema: string;
   shots: VideoContextShot[];
   lastActionSummary?: string;
+  conversation?: StoryboardConversationTurn[];
 }
 
 /**
@@ -134,6 +143,11 @@ export interface BuildStoryboardContextOptions {
    * 例："刚刚批量更新了 shot 2、3、4 的 visualPrompt"。
    */
   lastActionSummary?: string;
+  /**
+   * 最近多轮对话。用于让后端 AI 理解用户刚刚点击的选项或追问，
+   * 不发送完整历史，调用方应提前截断。
+   */
+  conversation?: StoryboardConversationTurn[];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -294,6 +308,7 @@ export function buildStoryboardContext(
   options: BuildStoryboardContextOptions = {}
 ): StoryboardContextPayload {
   const { projectId = "", lastActionSummary } = options;
+  const conversation = options.conversation?.filter((turn) => turn.content.trim() !== "");
 
   // ── 统计基础数据 ───────────────────────────────────────────
 
@@ -323,6 +338,7 @@ export function buildStoryboardContext(
     selectedShotId,
     // 只在存在时注入，避免给 AI 看到空的 lastActionSummary
     ...(lastActionSummary !== undefined ? { lastActionSummary } : {}),
+    ...(conversation && conversation.length > 0 ? { conversation } : {}),
   };
 
   // ── 按模式分支，构建模式专属字段 ─────────────────────────

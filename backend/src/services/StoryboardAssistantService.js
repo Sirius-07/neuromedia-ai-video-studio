@@ -17,6 +17,14 @@ import MultimodalAIService from './MultimodalAIService.js';
 
 const TIMEOUT_MS = 30_000;
 
+const MULTI_TURN_RULES = `═══════════════════════════════════
+六、多轮对话与选项规则
+═══════════════════════════════════
+- 如果用户上一轮是在回答你给出的 options，请把本轮输入视为明确选择，不要重复问同一个问题。
+- 当用户要求"给我方案/让我选/先看看/优化一下"且方向不唯一时，优先输出 ask_user，并提供 2-4 个互斥、可点击、短句选项。
+- suggestions 必须是用户下一步可以直接点击发送的短指令，最多 3 条。
+- 若最近对话中已经确认了风格、节奏、范围或目标分镜，本轮应继续执行该选择，而不是重新澄清。`;
+
 // ─────────────────────────────────────────────────────────────
 // System Prompt 构建
 // ─────────────────────────────────────────────────────────────
@@ -259,7 +267,10 @@ const VIDEO_SYSTEM_PROMPT = `你是一位专业的分镜板 AI 导演助理，�
  * @returns {string}
  */
 function buildStoryboardSystemPrompt(context) {
-  return context.mode === 'video' ? VIDEO_SYSTEM_PROMPT : IMAGE_SYSTEM_PROMPT;
+  const base = context.mode === 'video' ? VIDEO_SYSTEM_PROMPT : IMAGE_SYSTEM_PROMPT;
+  return `${base}
+
+${MULTI_TURN_RULES}`;
 }
 
 /**
@@ -281,6 +292,7 @@ function buildUserPrompt(message, context) {
     modeSchema,
     shots,
     lastActionSummary,
+    conversation,
   } = context;
 
   const completionPct = Math.round((completionRate ?? 0) * 100);
@@ -299,6 +311,11 @@ function buildUserPrompt(message, context) {
   const lastActionLine =
     lastActionSummary ? `\n最近操作：${lastActionSummary}` : '';
 
+  const conversationLine =
+    Array.isArray(conversation) && conversation.length > 0
+      ? `\n\n【最近对话（用于理解用户选择，不要逐字复述）】\n${JSON.stringify(conversation)}`
+      : '';
+
   return `【项目信息】
 项目名称：${projectTitle ?? '未命名'}
 当前模式：${mode}
@@ -309,7 +326,7 @@ ${selectedInfo}${lastActionLine}
 ${modeSchema}
 
 【当前分镜列表（JSON）】
-${shotsJson}
+${shotsJson}${conversationLine}
 
 【用户指令】
 ${message}

@@ -1,0 +1,1868 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Neuromedia 作品集 V2</title>
+  <style>
+    :root {
+      --paper: #fbf7ef;
+      --paper-2: #f5f1e8;
+      --ink: #14221d;
+      --muted: #56655f;
+      --green: #00543d;
+      --green-2: #0c6b4c;
+      --green-3: #e7f0e6;
+      --line: #d8ded1;
+      --orange: #df5a12;
+      --orange-2: #fff0e4;
+      --blue: #1b7c8d;
+      --blue-2: #e7f3f4;
+      --shadow: 0 18px 48px rgba(22, 31, 26, 0.13);
+      --soft-shadow: 0 10px 28px rgba(22, 31, 26, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #ddd8ce;
+      color: var(--ink);
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif;
+    }
+
+    body { width: 1440px; }
+
+    .slide {
+      position: relative;
+      width: 1440px;
+      height: 810px;
+      overflow: hidden;
+      padding: 42px 54px;
+      break-after: page;
+      page-break-after: always;
+      background:
+        radial-gradient(circle at 72% 12%, rgba(12, 107, 76, 0.06), transparent 26%),
+        linear-gradient(180deg, #fffdf7 0%, var(--paper) 100%);
+    }
+
+    .slide::after {
+      content: "";
+      position: absolute;
+      left: -8%;
+      right: -8%;
+      bottom: 24px;
+      height: 1px;
+      border-bottom: 2px dashed rgba(0, 84, 61, 0.35);
+      transform: rotate(-1.2deg);
+      pointer-events: none;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+
+    h1 {
+      font-size: 86px;
+      line-height: 0.98;
+      letter-spacing: 0;
+      font-weight: 900;
+      color: var(--green);
+    }
+
+    h2 {
+      font-size: 64px;
+      line-height: 1.08;
+      letter-spacing: 0;
+      font-weight: 900;
+      color: var(--green);
+    }
+
+    h3 {
+      font-size: 26px;
+      line-height: 1.25;
+      letter-spacing: 0;
+      font-weight: 850;
+      color: var(--ink);
+    }
+
+    p {
+      font-size: 18px;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .topline {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      height: 40px;
+      margin-bottom: 30px;
+    }
+
+    .page-no {
+      display: grid;
+      place-items: center;
+      min-width: 50px;
+      height: 38px;
+      padding: 0 10px;
+      border-radius: 8px;
+      background: var(--green);
+      color: #fff;
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    .case-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: #17241f;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .case-title strong {
+      color: var(--green);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 26px;
+      letter-spacing: 0.01em;
+    }
+
+    .divider {
+      width: 1px;
+      height: 26px;
+      background: #9fa99f;
+    }
+
+    .subtitle {
+      margin-top: 20px;
+      max-width: 760px;
+      font-size: 27px;
+      line-height: 1.45;
+      color: #27342f;
+    }
+
+    .caption {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    .under {
+      position: relative;
+      display: inline-block;
+    }
+
+    .under::after {
+      content: "";
+      position: absolute;
+      left: -4px;
+      right: -4px;
+      bottom: -8px;
+      height: 12px;
+      border-bottom: 5px solid var(--green-2);
+      border-radius: 50%;
+      transform: rotate(-1deg);
+    }
+
+    .hand {
+      color: var(--green);
+      font-family: "KaiTi", "STKaiti", "Microsoft YaHei", sans-serif;
+      font-size: 22px;
+      line-height: 1.35;
+    }
+
+    .panel {
+      position: relative;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .panel.soft {
+      background: linear-gradient(180deg, rgba(247, 251, 245, 0.9), rgba(255, 255, 255, 0.86));
+    }
+
+    .green-panel {
+      background: linear-gradient(160deg, #006245 0%, #004934 100%);
+      color: #fff;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .green-panel p,
+    .green-panel h3,
+    .green-panel .small {
+      color: #fff;
+    }
+
+    .orange-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(223, 90, 18, 0.45);
+      background: var(--orange-2);
+      color: var(--orange);
+      font-size: 18px;
+      font-weight: 850;
+    }
+
+    .green-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 13px;
+      border-radius: 999px;
+      background: var(--green-3);
+      color: var(--green);
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 0.94fr 1.06fr;
+      gap: 36px;
+      align-items: stretch;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+
+    .big-quote {
+      padding: 36px 42px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #eef6eb 0%, #f8fbf4 100%);
+      border: 1px solid #d9e5d3;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .big-quote strong {
+      display: block;
+      color: var(--green);
+      font-size: 32px;
+      line-height: 1.45;
+      font-weight: 900;
+    }
+
+    .quote-mark {
+      color: var(--green);
+      font-size: 54px;
+      line-height: 0.7;
+      font-weight: 900;
+    }
+
+    .node {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--green-3);
+      color: var(--green);
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .num {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #fff;
+      font-size: 18px;
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+
+    .warn {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--orange);
+      color: #fff;
+      font-weight: 900;
+      font-size: 20px;
+    }
+
+    .arrow {
+      position: absolute;
+      border-top: 2px dashed rgba(0, 84, 61, 0.56);
+      transform-origin: left center;
+    }
+
+    .arrow::after {
+      content: "";
+      position: absolute;
+      right: -2px;
+      top: -6px;
+      width: 11px;
+      height: 11px;
+      border-right: 2px solid rgba(0, 84, 61, 0.72);
+      border-top: 2px solid rgba(0, 84, 61, 0.72);
+      transform: rotate(45deg);
+    }
+
+    .mock-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 9px;
+      display: block;
+    }
+
+    .mini-img {
+      width: 72px;
+      height: 54px;
+      object-fit: cover;
+      border-radius: 7px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .ui-window {
+      overflow: hidden;
+      background: #ffffff;
+      border: 1px solid #dce2da;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .ui-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 54px;
+      padding: 0 22px;
+      border-bottom: 1px solid #e5e8e1;
+      background: rgba(255, 255, 255, 0.88);
+    }
+
+    .dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .dots span {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #d7ddd4;
+    }
+
+    .logo-word {
+      color: var(--green);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 25px;
+      font-weight: 800;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .toolbar span {
+      padding: 7px 12px;
+      border: 1px solid #dce2da;
+      border-radius: 7px;
+      color: #26352f;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .canvas {
+      position: relative;
+      height: 452px;
+      background-image: radial-gradient(#d8ded6 1px, transparent 1px);
+      background-size: 20px 20px;
+      background-color: #fbfaf5;
+    }
+
+    .canvas-card {
+      position: absolute;
+      padding: 18px;
+      border: 1px solid #dce2da;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .canvas-card h4 {
+      margin: 0 0 12px;
+      color: var(--green);
+      font-size: 20px;
+      font-weight: 900;
+    }
+
+    .thumb-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .placeholder-line {
+      height: 9px;
+      margin-top: 9px;
+      border-radius: 999px;
+      background: #e2e6de;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .tag {
+      padding: 5px 10px;
+      border-radius: 7px;
+      background: var(--green-3);
+      color: var(--green);
+      font-size: 14px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      color: #25312d;
+      overflow: hidden;
+      border-radius: 9px;
+      border: 1px solid #e0e5dd;
+    }
+
+    .table th,
+    .table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e6eae4;
+      text-align: left;
+    }
+
+    .table th {
+      background: #f2f4ec;
+      color: var(--green);
+      font-weight: 900;
+    }
+
+    .table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .sticky {
+      position: absolute;
+      padding: 18px 20px;
+      background: #e8edd8;
+      color: var(--green);
+      font-family: "KaiTi", "STKaiti", serif;
+      font-size: 21px;
+      line-height: 1.35;
+      transform: rotate(-3deg);
+      box-shadow: 0 12px 24px rgba(74, 79, 62, 0.16);
+    }
+
+    .bottom-note {
+      position: absolute;
+      left: 54px;
+      right: 54px;
+      bottom: 34px;
+      display: flex;
+      align-items: center;
+      gap: 26px;
+      padding: 20px 24px;
+      border: 1px solid #d6dece;
+      border-radius: 10px;
+      background: rgba(255, 252, 245, 0.88);
+    }
+
+    .bottom-note strong {
+      color: var(--green);
+      font-size: 25px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .metric {
+      padding: 18px;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px solid #dce3d7;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .metric strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--green);
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.4;
+    }
+
+    .hero-title {
+      position: absolute;
+      left: 58px;
+      top: 148px;
+      width: 600px;
+    }
+
+    .hero-title .name {
+      margin-top: 34px;
+      color: var(--green);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 92px;
+      line-height: 0.93;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-title .cn {
+      margin-top: 38px;
+      color: var(--green);
+      font-size: 48px;
+      line-height: 1.18;
+      font-weight: 900;
+    }
+
+    .hero-visual {
+      position: absolute;
+      right: 54px;
+      top: 86px;
+      width: 715px;
+      height: 642px;
+    }
+
+    .orbit-card {
+      position: absolute;
+      width: 222px;
+      min-height: 110px;
+      padding: 17px;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid #d9dfd3;
+      box-shadow: var(--shadow);
+    }
+
+    .orbit-card h3 {
+      color: #11221b;
+      font-size: 22px;
+    }
+
+    .orbit-card p {
+      margin-top: 6px;
+      font-size: 15px;
+      color: #47605a;
+    }
+
+    .script-center {
+      position: absolute;
+      left: 246px;
+      top: 250px;
+      width: 250px;
+      height: 182px;
+      padding: 26px;
+      text-align: center;
+      border: 3px solid #d6e7dc;
+      outline: 3px solid var(--green);
+      outline-offset: -10px;
+    }
+
+    .script-center h3 {
+      color: #fff;
+      font-size: 31px;
+      line-height: 1.3;
+    }
+
+    .script-center p {
+      margin-top: 14px;
+      font-size: 17px;
+      color: #d9f1e7;
+    }
+
+    .problem-layout {
+      display: grid;
+      grid-template-columns: 585px 1fr;
+      gap: 46px;
+      align-items: center;
+      margin-top: 22px;
+    }
+
+    .pain-card {
+      min-height: 168px;
+      padding: 24px;
+      border: 1px solid #d9dfd3;
+      border-radius: 11px;
+      background: #fffdfa;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .pain-head {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 13px;
+    }
+
+    .pain-head h3 {
+      color: var(--green);
+      font-size: 25px;
+    }
+
+    .cost-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .cost {
+      padding: 7px 10px;
+      border-radius: 7px;
+      background: var(--orange-2);
+      color: var(--orange);
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    .solution-map {
+      display: grid;
+      grid-template-columns: 1fr 120px 1fr;
+      gap: 16px;
+      align-items: center;
+      height: 520px;
+    }
+
+    .module-stack {
+      display: grid;
+      gap: 13px;
+    }
+
+    .module {
+      padding: 18px 20px;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px solid #dce3d7;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .module strong {
+      display: block;
+      color: var(--green);
+      font-size: 21px;
+      margin-bottom: 4px;
+      font-weight: 900;
+    }
+
+    .module span {
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .control-core {
+      display: grid;
+      place-items: center;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #fff;
+      text-align: center;
+      font-size: 22px;
+      line-height: 1.25;
+      font-weight: 900;
+      box-shadow: var(--shadow);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 18px;
+      margin-top: 48px;
+    }
+
+    .flow-card {
+      position: relative;
+      min-height: 380px;
+      padding: 22px 20px;
+      background: #fff;
+      border: 1px solid #dce3d7;
+      border-radius: 10px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .flow-card::after {
+      content: "";
+      position: absolute;
+      right: -18px;
+      top: 46%;
+      width: 18px;
+      border-top: 2px solid var(--green);
+    }
+
+    .flow-card:last-child::after { display: none; }
+
+    .flow-head {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin-bottom: 18px;
+    }
+
+    .flow-head h3 {
+      color: var(--green);
+      font-size: 25px;
+    }
+
+    .flow-visual {
+      height: 122px;
+      margin-bottom: 18px;
+      border-radius: 9px;
+      overflow: hidden;
+      background: #eef2ea;
+    }
+
+    .business-impact {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 22px;
+      margin-top: 34px;
+    }
+
+    .impact-card {
+      padding: 24px;
+      border-radius: 12px;
+      border: 1px solid #dce3d7;
+      background: #fff;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .impact-card .before {
+      min-height: 96px;
+      margin-bottom: 20px;
+      padding: 18px;
+      border-radius: 10px;
+      border: 1px solid #f0c5aa;
+      background: #fff4ec;
+      color: #b84608;
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1.36;
+    }
+
+    .impact-card .after {
+      min-height: 96px;
+      padding: 18px;
+      border-radius: 10px;
+      border: 1px solid #cbdcc8;
+      background: #edf5ea;
+      color: var(--green);
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1.36;
+    }
+
+    .persona {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 34px;
+      margin-top: 38px;
+      align-items: stretch;
+    }
+
+    .avatar-panel {
+      padding: 28px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #dce3d7;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .avatar {
+      width: 160px;
+      height: 160px;
+      margin: 0 auto 22px;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #e8efe6;
+      border: 8px solid #f0f5ee;
+    }
+
+    .scenario-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .scenario-card {
+      padding: 20px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #dce3d7;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .scenario-card .visual {
+      height: 130px;
+      margin-bottom: 18px;
+      border-radius: 9px;
+      overflow: hidden;
+      background: #edf1e9;
+    }
+
+    .research-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-top: 40px;
+    }
+
+    .research-card {
+      min-height: 220px;
+      padding: 22px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #dce3d7;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .research-card h3 {
+      color: var(--green);
+      font-size: 25px;
+      margin: 15px 0 12px;
+    }
+
+    .flowline {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 16px;
+      margin-top: 42px;
+    }
+
+    .task {
+      min-height: 272px;
+      padding: 22px 18px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #dce3d7;
+      box-shadow: var(--soft-shadow);
+      text-align: center;
+    }
+
+    .task h3 {
+      margin: 14px 0 12px;
+      color: var(--green);
+      font-size: 24px;
+    }
+
+    .task .pain {
+      margin-top: 16px;
+      padding: 10px;
+      border-radius: 8px;
+      background: var(--orange-2);
+      color: var(--orange);
+      font-size: 15px;
+      line-height: 1.35;
+      font-weight: 800;
+    }
+
+    .ia-layout {
+      display: grid;
+      grid-template-columns: 396px 1fr;
+      gap: 38px;
+      align-items: center;
+      margin-top: 18px;
+    }
+
+    .directory {
+      padding: 20px;
+      background: #fff;
+      border-left: 1px solid #e0e5dd;
+      height: 452px;
+    }
+
+    .dir-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 10px;
+      border-bottom: 1px solid #e7ebe5;
+      font-size: 17px;
+      font-weight: 850;
+      color: #24342f;
+    }
+
+    .dir-item span {
+      color: var(--green);
+      font-size: 15px;
+      background: var(--green-3);
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+
+    .detail-layout {
+      display: grid;
+      grid-template-columns: 430px 1fr 310px;
+      gap: 28px;
+      margin-top: 26px;
+      align-items: stretch;
+    }
+
+    .large-card {
+      padding: 28px;
+      border-radius: 14px;
+      background: #fff;
+      border: 4px solid var(--green);
+      box-shadow: var(--shadow);
+    }
+
+    .large-card h3 {
+      margin: 22px 0 18px;
+      color: #1c2d27;
+      font-size: 34px;
+    }
+
+    .side-explain {
+      display: grid;
+      gap: 16px;
+    }
+
+    .explain-card {
+      padding: 22px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #dce3d7;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .explain-card h3 {
+      color: var(--green);
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+
+    .element-layout {
+      display: grid;
+      grid-template-columns: 430px 1fr;
+      gap: 42px;
+      margin-top: 28px;
+      align-items: stretch;
+    }
+
+    .phone-panel {
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid #dce3d7;
+      box-shadow: var(--shadow);
+      min-height: 570px;
+    }
+
+    .phone-top {
+      height: 72px;
+      padding: 18px 24px;
+      color: #fff;
+      background: linear-gradient(125deg, #101a15, #223f28);
+    }
+
+    .element-card {
+      display: grid;
+      grid-template-columns: 84px 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid #dfe6dc;
+      margin-bottom: 12px;
+      background: #fff;
+    }
+
+    .catalog-layout {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      margin-top: 34px;
+    }
+
+    .catalog-screen {
+      height: 520px;
+      border: 3px solid var(--green);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .screen-head {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      border-bottom: 1px solid #e5e9e2;
+      font-size: 15px;
+      color: #52605b;
+    }
+
+    .catalog-body {
+      padding: 18px;
+    }
+
+    .catalog-row {
+      display: grid;
+      grid-template-columns: 44px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 12px;
+      border: 1px solid #e4e9e0;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      background: #fffdfa;
+    }
+
+    .ai-grid {
+      display: grid;
+      grid-template-columns: 410px 1fr;
+      gap: 42px;
+      margin-top: 28px;
+      align-items: center;
+    }
+
+    .mechanism-map {
+      position: relative;
+      height: 510px;
+    }
+
+    .mechanism-center {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 260px;
+      height: 220px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 22px;
+      border: 3px solid var(--green);
+    }
+
+    .mech {
+      position: absolute;
+      width: 280px;
+      padding: 18px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #dce3d7;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .mech h3 {
+      color: var(--green);
+      font-size: 25px;
+      margin-bottom: 10px;
+    }
+
+    .layout-frame {
+      display: grid;
+      grid-template-columns: 150px 1fr 190px;
+      grid-template-rows: 70px 1fr 84px;
+      height: 540px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid #dce3d7;
+      box-shadow: var(--shadow);
+    }
+
+    .layout-header {
+      grid-column: 1 / 4;
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      padding: 0 24px;
+      border-bottom: 1px solid #e4e8e0;
+    }
+
+    .layout-left {
+      grid-column: 1;
+      grid-row: 2 / 4;
+      padding: 18px;
+      border-right: 1px solid #e4e8e0;
+      background: #fbfaf5;
+    }
+
+    .layout-main {
+      position: relative;
+      grid-column: 2;
+      grid-row: 2;
+      background-image: radial-gradient(#d8ded6 1px, transparent 1px);
+      background-size: 19px 19px;
+      padding: 32px;
+    }
+
+    .layout-right {
+      grid-column: 3;
+      grid-row: 2 / 4;
+      padding: 18px;
+      border-left: 1px solid #e4e8e0;
+      background: #fff;
+    }
+
+    .layout-tools {
+      grid-column: 2;
+      grid-row: 3;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      border-top: 1px solid #e4e8e0;
+      background: #fff;
+    }
+
+    .tool {
+      width: 70px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #dce3d7;
+      border-radius: 9px;
+      color: var(--green);
+      font-weight: 900;
+      font-size: 14px;
+    }
+
+    .layout-note {
+      display: grid;
+      gap: 20px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .legend span {
+      padding: 8px 12px;
+      border-radius: 8px;
+      color: var(--green);
+      background: var(--green-3);
+      font-size: 16px;
+      font-weight: 850;
+    }
+
+    @page {
+      size: 1440px 810px;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <section class="slide" data-slide="01">
+    <div class="hero-title">
+      <div class="page-no">01</div>
+      <div class="name">Neuromedia</div>
+      <div class="cn">南方传媒集团<br>AIGC 视频创意脚本工作台</div>
+      <p class="subtitle">让 AIGC 视频生产从黑箱试错，变成 <span class="under">可判断</span>、<span class="under">可回修</span>、可复用的企业工作流。</p>
+      <div class="legend" style="margin-top:34px">
+        <span>企业降本</span>
+        <span>生产增效</span>
+        <span>经验资产化</span>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="orbit-card" style="left:278px;top:0">
+        <h3>素材卡</h3>
+        <p>集中管理多源素材，形成创作上下文。</p>
+      </div>
+      <div class="orbit-card" style="right:0;top:145px">
+        <h3>方向卡</h3>
+        <p>让创意方向可比较，可继续推进。</p>
+      </div>
+      <div class="orbit-card" style="left:20px;top:330px">
+        <h3>脚本 / 分镜</h3>
+        <p>把灵感拆成可检查、可控制的生产表。</p>
+      </div>
+      <div class="orbit-card" style="right:38px;bottom:20px">
+        <h3>结果回流</h3>
+        <p>把成功结果沉淀成下次可复用资产。</p>
+      </div>
+      <div class="green-panel script-center">
+        <h3>脚本作为<br>控制点</h3>
+        <p>连接素材、方向、分镜、结果与回修</p>
+      </div>
+      <div class="arrow" style="left:420px;top:126px;width:175px;transform:rotate(26deg)"></div>
+      <div class="arrow" style="left:468px;top:345px;width:180px;transform:rotate(-18deg)"></div>
+      <div class="arrow" style="left:170px;top:410px;width:165px;transform:rotate(-31deg)"></div>
+      <div class="arrow" style="left:360px;top:480px;width:185px;transform:rotate(30deg)"></div>
+      <div class="sticky" style="right:42px;top:28px">从业务产出看，<br>不是多生成几版，<br>而是少返工几轮。</div>
+    </div>
+  </section>
+
+  <section class="slide" data-slide="02">
+    <div class="topline">
+      <div class="page-no">02</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>问题重构</span></div>
+    </div>
+    <h2>AI 让生成变快了，<br>但企业内容生产并没有因此变稳。</h2>
+    <div class="problem-layout">
+      <div>
+        <div class="big-quote">
+          <div class="quote-mark">“</div>
+          <strong>AIGC 降低了生成成本，<br>但没有自动降低生产决策成本。</strong>
+        </div>
+        <p class="caption">在南方传媒集团的 AIGC 视频制作业务中，制作人员已经能快速生成脚本、画面和片段，但项目仍依赖大量人工判断、反复试错和经验返修。</p>
+      </div>
+      <div class="grid-2" style="gap:18px">
+        <div class="pain-card">
+          <div class="pain-head"><div class="warn">!</div><h3>决策成本高</h3></div>
+          <p>AIGC 给出多个方向，但缺少统一判断依据，制作人员要靠经验比较主题、受众、情绪与画面可行性。</p>
+          <div class="cost-row"><span class="cost">方向选择慢</span><span class="cost">标准不稳定</span></div>
+        </div>
+        <div class="pain-card">
+          <div class="pain-head"><div class="warn">!</div><h3>返工成本高</h3></div>
+          <p>结果不理想时，难以定位问题来自素材、方向、脚本结构还是提示词，回修容易变成重新试错。</p>
+          <div class="cost-row"><span class="cost">问题难定位</span><span class="cost">多轮重做</span></div>
+        </div>
+        <div class="pain-card">
+          <div class="pain-head"><div class="warn">!</div><h3>协作成本高</h3></div>
+          <p>素材、脚本、结果和反馈散落在不同工具里，团队难以快速对齐“为什么这样生成、下一步改哪里”。</p>
+          <div class="cost-row"><span class="cost">信息分散</span><span class="cost">交接不清</span></div>
+        </div>
+        <div class="pain-card">
+          <div class="pain-head"><div class="warn">!</div><h3>复用成本高</h3></div>
+          <p>成功方向、有效素材组合和可用脚本结构没有沉淀为资产，下个项目仍要从零开始判断。</p>
+          <div class="cost-row"><span class="cost">经验流失</span><span class="cost">重复试错</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="sticky" style="right:72px;bottom:58px;transform:rotate(2deg)">瓶颈从“能不能生成”，<br>转移到“能不能稳定产出”。</div>
+  </section>
+
+  <section class="slide" data-slide="03">
+    <div class="topline">
+      <div class="page-no">03</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>方案总览</span></div>
+    </div>
+    <h2>把分散的 AIGC 试错，<br>转化为可管理的视频生产流程。</h2>
+    <p class="subtitle" style="max-width:860px">我设计了一套以“脚本”为控制点的 AIGC 视频创作工作台，通过素材画布、方向卡、脚本抽屉、概念验证和结果回流，让生成过程可判断、可回修、可沉淀。</p>
+    <div class="solution-map">
+      <div class="module-stack">
+        <div class="module"><strong>素材画布</strong><span>把项目素材、参考文本和生成结果放回同一创作空间。</span></div>
+        <div class="module"><strong>方向卡</strong><span>把模糊灵感压缩成可比较的创意主张与判断依据。</span></div>
+        <div class="module"><strong>元素面板</strong><span>把生成结果拆成主体、场景、动作和镜头控制点。</span></div>
+      </div>
+      <div class="control-core">脚本<br>控制点</div>
+      <div class="module-stack">
+        <div class="module"><strong>分镜脚本</strong><span>用表格化结构承载镜头顺序、时长、元素和生成条件。</span></div>
+        <div class="module"><strong>概念验证</strong><span>先生成可评估片段，判断方向是否值得继续投入。</span></div>
+        <div class="module"><strong>回流资产</strong><span>把有效选择沉淀为方向、脚本片段、元素组合和案例。</span></div>
+      </div>
+    </div>
+    <div class="metrics" style="position:absolute;left:54px;right:54px;bottom:52px">
+      <div class="metric"><strong>少返工</strong><span>生成前先判断方向，生成后能定位问题来源。</span></div>
+      <div class="metric"><strong>快决策</strong><span>把多个方向转成同一维度下的可比较对象。</span></div>
+      <div class="metric"><strong>好协作</strong><span>让团队看到素材、脚本、结果之间的依据链。</span></div>
+      <div class="metric"><strong>可复用</strong><span>把成功经验沉淀为下一次项目的生产资产。</span></div>
+    </div>
+  </section>
+
+  <section class="slide" data-slide="04">
+    <div class="topline">
+      <div class="page-no">04</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>核心交互闭环</span></div>
+    </div>
+    <h2>从素材到脚本，再到结果回流，<br>让每一次 AI 生成都有上下文。</h2>
+    <div class="flow">
+      <div class="flow-card">
+        <div class="flow-head"><div class="num">1</div><h3>选择素材</h3></div>
+        <div class="flow-visual"><img class="mock-img" src="assets/start.png" alt=""></div>
+        <p><b>用户动作</b><br>勾选视频、图片、参考文本。</p>
+        <p class="small" style="margin-top:14px"><b>系统反馈</b><br>形成当前项目上下文。</p>
+      </div>
+      <div class="flow-card">
+        <div class="flow-head"><div class="num">2</div><h3>生成方向</h3></div>
+        <div class="flow-visual"><img class="mock-img" src="assets/style.png" alt=""></div>
+        <p><b>用户动作</b><br>比较多个创意切口。</p>
+        <p class="small" style="margin-top:14px"><b>设计意图</b><br>把模糊灵感变成可比较对象。</p>
+      </div>
+      <div class="flow-card">
+        <div class="flow-head"><div class="num">3</div><h3>生成脚本</h3></div>
+        <div class="flow-visual"><img class="mock-img" src="assets/script.png" alt=""></div>
+        <p><b>用户动作</b><br>采用方向并展开脚本抽屉。</p>
+        <p class="small" style="margin-top:14px"><b>系统反馈</b><br>输出分镜结构与元素建议。</p>
+      </div>
+      <div class="flow-card">
+        <div class="flow-head"><div class="num">4</div><h3>概念验证</h3></div>
+        <div class="flow-visual"><img class="mock-img" src="assets/storyboard.png" alt=""></div>
+        <p><b>用户动作</b><br>生成概念图或短片段。</p>
+        <p class="small" style="margin-top:14px"><b>设计意图</b><br>让结果可以被判断。</p>
+      </div>
+      <div class="flow-card">
+        <div class="flow-head"><div class="num">5</div><h3>回流画布</h3></div>
+        <div class="flow-visual"><img class="mock-img" src="assets/final-home.png" alt=""></div>
+        <p><b>用户动作</b><br>保存有效方案或修正节点。</p>
+        <p class="small" style="margin-top:14px"><b>系统反馈</b><br>沉淀为可复用资产。</p>
+      </div>
+    </div>
+    <div class="bottom-note">
+      <strong>闭环的核心：</strong>
+      <p>让创作过程可追溯、可判断、可回修，让企业的视频生产不再依赖一次次经验试错。</p>
+    </div>
+  </section>
+
+  <section class="slide" data-slide="05">
+    <div class="topline">
+      <div class="page-no">05</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>价值转化</span></div>
+    </div>
+    <h2>把痛点转成产品能力：<br>先降低判断成本，再提升生成效率。</h2>
+    <div class="business-impact">
+      <div class="impact-card">
+        <div class="before">方向很多，<br>但缺少比较标准。</div>
+        <div class="after">方向卡：<br>创意主张、判断理由、来源素材一起呈现。</div>
+        <div class="legend"><span>可比较</span><span>少犹豫</span></div>
+      </div>
+      <div class="impact-card">
+        <div class="before">脚本很长，<br>难检查节奏和条件。</div>
+        <div class="after">脚本抽屉：<br>把长文本拆成镜头、元素、时长和生成条件。</div>
+        <div class="legend"><span>可控制</span><span>少返工</span></div>
+      </div>
+      <div class="impact-card">
+        <div class="before">结果偏了，<br>不知道问题在哪。</div>
+        <div class="after">来源追溯：<br>保留素材、方向、分镜和结果之间的引用链。</div>
+        <div class="legend"><span>可追踪</span><span>少重做</span></div>
+      </div>
+    </div>
+    <div class="big-quote" style="position:absolute;left:176px;right:176px;bottom:76px;text-align:center">
+      <strong>企业级 AIGC 不是追求“多生成”，而是让每一次选择都能被解释、复盘和复用。</strong>
+    </div>
+  </section>
+
+  <section class="slide" data-slide="06">
+    <div class="topline">
+      <div class="page-no">06</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>用户与场景</span></div>
+    </div>
+    <h2>强时效内容团队，<br>需要在有限时间内产出可发布方案。</h2>
+    <div class="persona">
+      <div class="avatar-panel">
+        <div class="avatar"><img class="mock-img" src="assets/before-home.png" alt=""></div>
+        <h3 style="color:var(--green);font-size:30px">AIGC 视频制作人员</h3>
+        <p class="caption">负责把业务主题转成短视频脚本、画面方向与概念片段。</p>
+        <div class="tag-row">
+          <span class="tag">强时效</span><span class="tag">多素材</span><span class="tag">多轮改稿</span><span class="tag">结果不确定</span>
+        </div>
+        <div class="big-quote" style="margin-top:26px;padding:22px">
+          <strong style="font-size:25px">核心压力：既要快，也要知道为什么这样生成。</strong>
+        </div>
+      </div>
+      <div class="scenario-row">
+        <div class="scenario-card">
+          <div class="flow-head"><div class="num">1</div><h3>热点资讯快剪</h3></div>
+          <div class="visual"><img class="mock-img" src="assets/proposals.png" alt=""></div>
+          <p><b>场景说明</b><br>主题变化快，需要快速找到表达切口。</p>
+          <div class="orange-chip" style="margin-top:18px">方向选择成本高</div>
+        </div>
+        <div class="scenario-card">
+          <div class="flow-head"><div class="num">2</div><h3>城市宣传短片</h3></div>
+          <div class="visual"><img class="mock-img" src="assets/style.png" alt=""></div>
+          <p><b>场景说明</b><br>地点、情绪和视觉风格需要统一。</p>
+          <div class="orange-chip" style="margin-top:18px">脚本逻辑易分散</div>
+        </div>
+        <div class="scenario-card">
+          <div class="flow-head"><div class="num">3</div><h3>品牌活动预热视频</h3></div>
+          <div class="visual"><img class="mock-img" src="assets/storyboard-ai.png" alt=""></div>
+          <p><b>场景说明</b><br>要在氛围、卖点和节奏之间取舍。</p>
+          <div class="orange-chip" style="margin-top:18px">结果难解释</div>
+        </div>
+      </div>
+    </div>
+    <div class="sticky" style="right:70px;bottom:58px;transform:rotate(-2deg)">每一步都在消耗<br>时间与信心。</div>
+  </section>
+
+  <section class="slide" data-slide="07">
+    <div class="topline">
+      <div class="page-no">07</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>研究证据板</span></div>
+    </div>
+    <h2>研究不是为了证明“能生成”，<br>而是定位生产成本发生在哪些判断点。</h2>
+    <div class="research-strip">
+      <div class="research-card">
+        <div class="num">1</div>
+        <h3>桌面研究</h3>
+        <p>梳理 AIGC 视频生产链路，从选题到结果回修定位关键步骤。</p>
+        <div class="green-chip" style="margin-top:22px">产出：机会点</div>
+      </div>
+      <div class="research-card">
+        <div class="num">2</div>
+        <h3>竞品观察</h3>
+        <p>对比 Prompt 工具、视频生成工具和创意白板，识别功能缺口。</p>
+        <div class="green-chip" style="margin-top:22px">产出：能力矩阵</div>
+      </div>
+      <div class="research-card">
+        <div class="num">3</div>
+        <h3>流程拆解</h3>
+        <p>拆解从选素材到回修结果的过程，标注认知负担节点。</p>
+        <div class="green-chip" style="margin-top:22px">产出：阻力地图</div>
+      </div>
+      <div class="research-card">
+        <div class="num">4</div>
+        <h3>专家推演</h3>
+        <p>模拟内容团队的脚本评审、分镜改稿和结果复盘过程。</p>
+        <div class="green-chip" style="margin-top:22px">产出：验证假设</div>
+      </div>
+    </div>
+    <div class="panel soft" style="margin-top:38px;padding:28px 34px">
+      <div class="grid-4">
+        <div><div class="orange-chip">素材分散</div><p class="caption">来源多、结构乱，难形成可用线索。</p></div>
+        <div><div class="orange-chip">方向难判断</div><p class="caption">切口太多，标准模糊，决策成本高。</p></div>
+        <div><div class="orange-chip">脚本难收敛</div><p class="caption">结构不稳定，要素难控，难以评估。</p></div>
+        <div><div class="orange-chip">结果难回修</div><p class="caption">问题难定位，修改盲目，经验难沉淀。</p></div>
+      </div>
+    </div>
+    <div class="bottom-note">
+      <strong>关键研究结论：</strong>
+      <p>脚本是 AI 生成结果的主要控制对象，也是企业视频生产中最值得设计介入的判断链路。</p>
+    </div>
+  </section>
+
+  <section class="slide" data-slide="08">
+    <div class="topline">
+      <div class="page-no">08</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>任务流程拆解</span></div>
+    </div>
+    <h2>从接收任务到结果回修，<br>真正卡住的是三个判断环节。</h2>
+    <div class="flowline">
+      <div class="task">
+        <div class="node" style="margin:auto">1</div>
+        <h3>接收主题</h3>
+        <p>理解任务目标</p>
+        <div class="pain">主题明确，表达切口模糊</div>
+      </div>
+      <div class="task">
+        <div class="node" style="margin:auto">2</div>
+        <h3>搜集素材</h3>
+        <p>整理视频、图片、参考文本</p>
+        <div class="pain">素材分散，难形成线索</div>
+      </div>
+      <div class="task" style="border-color:#f2b18b">
+        <div class="node" style="margin:auto;background:#fff0e4;color:var(--orange)">3</div>
+        <h3 style="color:var(--orange)">寻找方向</h3>
+        <p>尝试多个创意切口</p>
+        <div class="pain">缺少可比较标准</div>
+      </div>
+      <div class="task" style="border-color:#f2b18b">
+        <div class="node" style="margin:auto;background:#fff0e4;color:var(--orange)">4</div>
+        <h3 style="color:var(--orange)">生成脚本</h3>
+        <p>把方向转成分镜结构</p>
+        <div class="pain">脚本不稳定，难评估好坏</div>
+      </div>
+      <div class="task">
+        <div class="node" style="margin:auto">5</div>
+        <h3>概念验证</h3>
+        <p>生成画面片段或概念图</p>
+        <div class="pain">结果问题难反推原因</div>
+      </div>
+      <div class="task" style="border-color:#f2b18b">
+        <div class="node" style="margin:auto;background:#fff0e4;color:var(--orange)">6</div>
+        <h3 style="color:var(--orange)">回修改稿</h3>
+        <p>调整素材、提示词、脚本</p>
+        <div class="pain">经验难沉淀，重复试错</div>
+      </div>
+    </div>
+    <div class="panel soft" style="margin-top:32px;padding:24px 30px">
+      <div class="grid-3">
+        <div><h3 style="color:var(--green)">让方向可比较</h3><p class="caption">方向卡沉淀判断字段，支持多方向并排对比。</p></div>
+        <div><h3 style="color:var(--green)">让脚本可控制</h3><p class="caption">脚本抽屉绑定分镜与元素，支持局部重写。</p></div>
+        <div><h3 style="color:var(--green)">让结果可追踪</h3><p class="caption">记录生成来源与参数，问题可回溯。</p></div>
+      </div>
+    </div>
+    <div class="sticky" style="right:82px;bottom:54px">设计介入点：<br>判断、控制、回修。</div>
+  </section>
+
+  <section class="slide" data-slide="09">
+    <div class="topline">
+      <div class="page-no">09</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>信息架构</span></div>
+    </div>
+    <div class="ia-layout">
+      <div>
+        <h2>信息如何被显示、<br>归档并回到创作流。</h2>
+        <div class="big-quote" style="margin-top:44px">
+          <strong>同一批创作信息，<br>在不同显示容器里承担不同角色。</strong>
+        </div>
+        <div class="legend" style="margin-top:30px">
+          <span>画布看关系</span><span>目录看层级</span><span>元素看细节</span><span>Agent 看上下文</span>
+        </div>
+      </div>
+      <div class="ui-window">
+        <div class="ui-top">
+          <div class="logo-word">Neuromedia</div>
+          <div class="toolbar"><span>主题</span><span>方向</span><span>添加素材</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 245px">
+          <div class="canvas">
+            <div class="canvas-card" style="left:74px;top:95px;width:250px">
+              <h4>来源素材组</h4>
+              <div class="thumb-row">
+                <img class="mini-img" src="assets/start.png" alt="">
+                <img class="mini-img" src="assets/style.png" alt="">
+                <img class="mini-img" src="assets/script.png" alt="">
+              </div>
+              <div class="placeholder-line" style="width:72%"></div>
+            </div>
+            <div class="canvas-card" style="left:390px;top:42px;width:250px">
+              <h4>创意方向卡</h4>
+              <div class="placeholder-line" style="width:86%"></div>
+              <div class="placeholder-line" style="width:56%"></div>
+              <div class="tag-row"><span class="tag">温暖</span><span class="tag">生活感</span></div>
+            </div>
+            <div class="canvas-card" style="left:320px;bottom:58px;width:320px">
+              <h4>分镜故事板</h4>
+              <div class="thumb-row">
+                <div class="mini-img" style="display:grid;place-items:center;background:#f2f0e8;color:#7c8279">01</div>
+                <div class="mini-img" style="display:grid;place-items:center;background:#f2f0e8;color:#7c8279">02</div>
+                <div class="mini-img" style="display:grid;place-items:center;background:#f2f0e8;color:#7c8279">03</div>
+              </div>
+              <div class="placeholder-line" style="width:74%"></div>
+            </div>
+            <div class="canvas-card" style="right:64px;top:176px;width:230px">
+              <h4>生成结果</h4>
+              <img class="mock-img" src="assets/storyboard-ai.png" alt="" style="height:102px">
+            </div>
+          </div>
+          <div class="directory">
+            <h3 style="color:var(--green);margin-bottom:14px">画布目录</h3>
+            <div class="dir-item">项目主题 <span>1</span></div>
+            <div class="dir-item">创意方向 <span>3 方向</span></div>
+            <div class="dir-item">分镜脚本 <span>2 脚本</span></div>
+            <div class="dir-item">镜头列表 <span>10 镜头</span></div>
+            <div class="dir-item">元素组合 <span>48 元素</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-note">
+      <strong>设计目标：</strong>
+      <p>把复杂创作关系放到空间里，让用户不用记住所有上下文，也能知道当前信息从哪里来、接下来做什么。</p>
+    </div>
+  </section>
+
+  <section class="slide" data-slide="10">
+    <div class="topline">
+      <div class="page-no">10</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>设计细节：创意方向卡</span></div>
+    </div>
+    <h2>方向卡是素材到脚本之间的判断节点。</h2>
+    <div class="detail-layout">
+      <div>
+        <div class="big-quote">
+          <strong>它帮助用户判断：<br>这个方向是否值得继续？</strong>
+        </div>
+        <div class="panel" style="margin-top:24px;padding:24px">
+          <div class="orange-chip">解决的问题：方向难判断</div>
+          <p class="caption">AI 可以生成多个创意切口，但用户很难快速判断哪个更贴合主题、素材和后续脚本。</p>
+        </div>
+      </div>
+      <div class="large-card">
+        <div class="green-chip">创意方向</div>
+        <h3>蒸汽串起早茶时光</h3>
+        <p style="font-size:22px;color:#4d5e58">用一缕蒸汽串联广州早茶的代际场景。早茶是广州记忆核心场景，适合转化为温暖、生活化的叙事。</p>
+        <div class="thumb-row" style="margin-top:28px">
+          <img class="mini-img" src="assets/start.png" alt="" style="width:112px;height:78px">
+          <img class="mini-img" src="assets/style.png" alt="" style="width:112px;height:78px">
+          <img class="mini-img" src="assets/script.png" alt="" style="width:112px;height:78px">
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:34px;border-top:1px solid #e2e7df;padding-top:22px">
+          <div>
+            <strong style="color:var(--green);font-size:20px">下一步</strong>
+            <p>生成第一版分镜脚本</p>
+          </div>
+          <button style="border:0;background:var(--green);color:#fff;border-radius:8px;padding:14px 24px;font-size:20px;font-weight:900">生成分镜脚本</button>
+        </div>
+      </div>
+      <div class="side-explain">
+        <div class="explain-card">
+          <h3>标题与判断理由</h3>
+          <p>标题先压缩创意主张，理由解释为什么从当前素材和需求中成立。</p>
+        </div>
+        <div class="explain-card">
+          <h3>来源素材</h3>
+          <p>缩略图展示支撑方向的关键素材，减少“凭空生成”的不信任感。</p>
+        </div>
+        <div class="explain-card">
+          <h3>下一步链接</h3>
+          <p>方向卡既能继续生成，也能在后续复盘和回修中被追溯。</p>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-note">
+      <strong>细节总结：</strong>
+      <p>把方向拆成“创意主张 + 判断依据 + 来源素材 + 下一步动作”，让创意选择从凭感觉变成看依据、能推进、可追溯。</p>
+    </div>
+  </section>
+
+  <section class="slide" data-slide="11">
+    <div class="topline">
+      <div class="page-no">11</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>设计细节：元素面板</span></div>
+    </div>
+    <h2>元素不是普通素材库，<br>而是镜头生成的控制点。</h2>
+    <div class="element-layout">
+      <div class="phone-panel">
+        <div class="phone-top">
+          <h3 style="color:#fff;font-size:24px">元素面板</h3>
+          <p style="color:#d6f1e7;font-size:14px">广州夜骑光轨 · 光线起步</p>
+        </div>
+        <div style="padding:18px">
+          <div class="tag-row" style="margin-bottom:18px">
+            <span class="tag">全部元素</span><span class="tag" style="background:#f0f0ec;color:#626b66">当前镜头</span><span class="tag" style="background:#f0f0ec;color:#626b66">已锁定</span>
+          </div>
+          <div class="element-card">
+            <img class="mini-img" src="assets/storyboard-ai.png" alt="">
+            <div><h3 style="font-size:20px">夜骑者</h3><p class="small">镜头元素 / 主体</p></div>
+            <div class="tag">锁定</div>
+          </div>
+          <div class="element-card">
+            <img class="mini-img" src="assets/style.png" alt="">
+            <div><h3 style="font-size:20px">荧光车轮光轨</h3><p class="small">镜头元素 / 光线</p></div>
+            <div class="tag">替换</div>
+          </div>
+          <div class="element-card">
+            <img class="mini-img" src="assets/script.png" alt="">
+            <div><h3 style="font-size:20px">踩踏出发</h3><p class="small">镜头元素 / 动作</p></div>
+            <div class="tag">重写</div>
+          </div>
+          <button style="width:100%;height:54px;margin-top:20px;border:0;border-radius:8px;background:var(--green);color:#fff;font-size:20px;font-weight:900">生成元素</button>
+        </div>
+      </div>
+      <div>
+        <div class="panel soft" style="padding:28px">
+          <h3 style="color:var(--green);font-size:36px">元素怎么来？</h3>
+          <div class="flow" style="grid-template-columns:repeat(5,1fr);gap:12px;margin-top:24px">
+            <div class="module"><strong>分镜脚本</strong><span>脚本给出镜头目标</span></div>
+            <div class="module"><strong>镜头理解</strong><span>AI 识别主体与机制</span></div>
+            <div class="module"><strong>元素抽离</strong><span>抽成可管理对象</span></div>
+            <div class="module"><strong>分类管理</strong><span>按语义分组查找</span></div>
+            <div class="module"><strong>元素级回修</strong><span>锁定替换后再生成</span></div>
+          </div>
+        </div>
+        <div class="grid-3" style="margin-top:24px">
+          <div class="explain-card"><h3>筛选与分类</h3><p>全部元素、当前镜头、已锁定三个入口，对应不同回修场景。</p></div>
+          <div class="explain-card"><h3>元素卡片结构</h3><p>缩略图、名称、类型标签、描述和锁定操作，让用户快速识别。</p></div>
+          <div class="explain-card"><h3>底部生成区</h3><p>固定当前镜头元素集合，浏览时仍能随时发起下一步生成。</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-note">
+      <strong>细节总结：</strong>
+      <p>元素面板把一次生成结果拆成可定位、可控制、可复用的镜头要素，让回修从整段重试变成局部控制。</p>
+    </div>
+  </section>
+
+  <section class="slide" data-slide="12">
+    <div class="topline">
+      <div class="page-no">12</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>设计细节：画布目录</span></div>
+    </div>
+    <h2>画布目录的三层信息：<br>先看方向，再看生产表，最后追到单个结果。</h2>
+    <div class="catalog-layout">
+      <div>
+        <h3 style="color:var(--green);font-size:29px;margin-bottom:16px">1. 方向视图</h3>
+        <div class="catalog-screen">
+          <div class="screen-head"><span>返回工作区</span><b>画布目录</b><span>×</span></div>
+          <div class="catalog-body">
+            <h3 style="font-size:24px;margin-bottom:16px">QA 广州夜骑完整流程</h3>
+            <div class="catalog-row"><div class="num">1</div><div><b>广州夜骑倒影</b><p class="small">候选方向</p></div><span class="tag">0 分镜</span></div>
+            <div class="catalog-row"><div class="num">2</div><div><b>广州夜骑赛道</b><p class="small">候选方向</p></div><span class="tag">0 分镜</span></div>
+            <div class="catalog-row" style="border-color:#b8d2bf"><div class="num">3</div><div><b>广州夜骑光轨</b><p class="small">已选定方向</p></div><span class="tag">6 镜头</span></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 style="color:var(--green);font-size:29px;margin-bottom:16px">2. 分镜视图</h3>
+        <div class="catalog-screen">
+          <div class="screen-head"><span>返回工作区</span><b>画布目录</b><span>×</span></div>
+          <div class="catalog-body">
+            <table class="table">
+              <thead><tr><th>分镜图</th><th>序号</th><th>内容描述</th><th>元素</th></tr></thead>
+              <tbody>
+                <tr><td>Frame</td><td>01</td><td>夜骑者从画面边缘亮起</td><td>8</td></tr>
+                <tr><td>Frame</td><td>02</td><td>低机位跟拍穿过城市赛道</td><td>8</td></tr>
+                <tr><td>Frame</td><td>03</td><td>近景切到脚踏与车轮</td><td>8</td></tr>
+                <tr><td>Frame</td><td>04</td><td>光轨在水面形成倒影</td><td>9</td></tr>
+                <tr><td>Frame</td><td>05</td><td>镜头推向城市夜色</td><td>7</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 style="color:var(--green);font-size:29px;margin-bottom:16px">3. 镜头视图</h3>
+        <div class="catalog-screen">
+          <div class="screen-head"><span>结构总览</span><b>画布目录</b><span>×</span></div>
+          <div class="catalog-body">
+            <div class="catalog-row"><div class="num">1</div><div><b>广州夜骑光轨</b><p class="small">创意方向</p></div><span class="tag">1 分镜</span></div>
+            <div class="catalog-row"><div class="num">1</div><div><b>广州夜骑光轨 storyboard</b><p class="small">6 个镜头 · 15s</p></div><span class="tag">展开</span></div>
+            <img class="mock-img" src="assets/storyboard-ai.png" alt="" style="height:160px;margin:16px 0">
+            <div class="tag-row"><span class="tag">夜骑者</span><span class="tag">荧光车轮</span><span class="tag">踩踏出发</span><span class="tag">+2</span></div>
+            <button style="width:100%;height:45px;margin-top:18px;border:0;border-radius:8px;background:var(--green);color:#fff;font-weight:900">定位镜头</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-note">
+      <strong>解决问题：</strong>
+      <p>脚本是长文本，难以检查节奏和生成条件。目录把方向、分镜和镜头拆成三层，让用户快速定位问题和交付内容。</p>
+    </div>
+  </section>
+
+  <section class="slide" data-slide="13">
+    <div class="topline">
+      <div class="page-no">13</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>AI 交互关键机制</span></div>
+    </div>
+    <div class="ai-grid">
+      <div>
+        <h2>把 AI 的不确定性，<br>转化为可操作、可回修、可解释的体验策略。</h2>
+        <div class="big-quote" style="margin-top:38px">
+          <strong>AI 体验设计的重点，不是让模型看起来更聪明，而是让用户知道如何判断、如何修正。</strong>
+        </div>
+        <div class="legend" style="margin-top:28px">
+          <span>判断依据</span><span>失败兜底</span><span>反馈闭环</span>
+        </div>
+      </div>
+      <div class="mechanism-map">
+        <div class="green-panel mechanism-center">
+          <h3>脚本作为<br>控制对象</h3>
+          <p>连接素材、方向、分镜、结果与回修</p>
+        </div>
+        <div class="mech" style="left:340px;top:0">
+          <h3>1. 意图澄清</h3>
+          <p>在方向生成前确认主题、受众和表达方向，减少无效生成。</p>
+          <div class="green-chip" style="margin-top:12px">落点：澄清提示</div>
+        </div>
+        <div class="mech" style="left:0;top:130px">
+          <h3>2. 来源溯源</h3>
+          <p>保留素材到脚本的引用关系，让结果知道从哪里来。</p>
+          <div class="green-chip" style="margin-top:12px">落点：素材引用线</div>
+        </div>
+        <div class="mech" style="right:0;top:168px">
+          <h3>3. 结果解释</h3>
+          <p>解释生成逻辑与关键元素，支持用户判断好坏。</p>
+          <div class="green-chip" style="margin-top:12px">落点：采用理由</div>
+        </div>
+        <div class="mech" style="left:86px;bottom:0">
+          <h3>4. 失败兜底</h3>
+          <p>结果偏题时提供重写此段、替换元素、收窄方向等局部入口。</p>
+          <div class="green-chip" style="margin-top:12px">落点：回修动作</div>
+        </div>
+        <div class="mech" style="right:56px;bottom:6px">
+          <h3>5. 纠错反馈</h3>
+          <p>把用户选择回流为偏好和可复用资产，减少下一次试错。</p>
+          <div class="green-chip" style="margin-top:12px">落点：记为资产</div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-note">
+      <strong>验证指标：</strong>
+      <p>AI 建议满意度、来源可追溯率、失败兜底成功率、脚本采纳率、完成任务所需回修次数。</p>
+    </div>
+  </section>
+
+  <section class="slide" data-slide="14">
+    <div class="topline">
+      <div class="page-no">14</div>
+      <div class="case-title"><strong>Neuromedia</strong><span class="divider"></span><span>设计细节：画布布局</span></div>
+    </div>
+    <div class="grid-2" style="align-items:center;margin-top:18px">
+      <div>
+        <h2>选择画布，是因为 AI 创作不是线性填表。</h2>
+        <div class="big-quote" style="margin-top:44px">
+          <strong>它是在素材、方向、脚本和结果之间反复判断。</strong>
+        </div>
+        <div class="panel soft" style="margin-top:26px;padding:26px">
+          <h3 style="color:var(--green);font-size:28px">设计目标</h3>
+          <p class="caption">让内容可发散、关系可见、过程可回溯。把复杂创作关系放到空间里，降低用户记忆上下文的成本。</p>
+        </div>
+      </div>
+      <div class="layout-frame">
+        <div class="layout-header">
+          <div class="logo-word">Neuromedia</div>
+          <div style="flex:1;height:42px;border:1px solid #dce3d7;border-radius:8px;display:flex;align-items:center;padding:0 18px;color:#586761;font-weight:800">主题：这个项目关注什么？</div>
+          <div class="toolbar"><span>方向</span><span>+ 添加素材</span></div>
+        </div>
+        <div class="layout-left">
+          <h3 style="font-size:20px;color:var(--green);margin-bottom:18px">元素面板</h3>
+          <div class="placeholder-line" style="height:42px;width:100%"></div>
+          <div class="placeholder-line" style="height:42px;width:100%;margin-top:16px"></div>
+          <div class="placeholder-line" style="height:42px;width:100%;margin-top:16px"></div>
+          <div class="placeholder-line" style="height:42px;width:100%;margin-top:16px"></div>
+        </div>
+        <div class="layout-main">
+          <div class="canvas-card" style="left:120px;top:80px;width:220px"><h4>素材卡</h4><div class="thumb-row"><div class="mini-img"></div><div class="mini-img"></div></div></div>
+          <div class="canvas-card" style="right:120px;top:86px;width:220px"><h4>方向卡</h4><div class="placeholder-line" style="width:80%"></div><div class="tag-row"><span class="tag">温暖</span><span class="tag">生活感</span></div></div>
+          <div class="canvas-card" style="left:214px;bottom:70px;width:260px"><h4>脚本 / 分镜</h4><div class="tag-row"><span class="tag">01</span><span class="tag">02</span><span class="tag">03</span><span class="tag">04</span></div></div>
+        </div>
+        <div class="layout-right">
+          <h3 style="font-size:20px;color:var(--green);margin-bottom:16px">画布目录</h3>
+          <div class="dir-item" style="font-size:14px;padding:10px 0">创意方向 <span>6</span></div>
+          <div class="dir-item" style="font-size:14px;padding:10px 0">分镜脚本 <span>2</span></div>
+          <div class="dir-item" style="font-size:14px;padding:10px 0">镜头列表 <span>10</span></div>
+          <div class="dir-item" style="font-size:14px;padding:10px 0">元素组合 <span>48</span></div>
+        </div>
+        <div class="layout-tools">
+          <div class="tool">选择</div><div class="tool">移动</div><div class="tool">文字</div><div class="tool">便签</div><div class="tool">画笔</div><div class="tool">AI 助手</div>
+        </div>
+      </div>
+    </div>
+    <div class="layout-note" style="position:absolute;right:64px;bottom:46px;width:500px">
+      <div class="explain-card"><h3>画布</h3><p>放下素材卡、方向卡、脚本卡和结果卡，以及它们之间的连接关系。</p></div>
+      <div class="explain-card"><h3>元素面板 / 画布目录 / 工具条</h3><p>左侧负责镜头元素，右侧负责结构定位，底部承载高频操作。</p></div>
+    </div>
+  </section>
+</body>
+</html>

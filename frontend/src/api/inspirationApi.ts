@@ -1,3 +1,5 @@
+import { apiUrl } from '../config/api';
+
 /**
  * 灵感激发模式 API 模块
  * 
@@ -5,7 +7,7 @@
  */
 
 // API 基础地址（Node.js 后端）
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = apiUrl('');
 
 // ============================================================
 // 类型定义
@@ -30,11 +32,25 @@ export interface RoughScriptScene {
   duration: number;
   visual?: string;
   assetPath?: string | null;
+  sourceRef?: string;
+  isAISupplemented?: boolean;
 }
 
 /** 粗略脚本 */
 export interface RoughScript {
   scenes: RoughScriptScene[];
+}
+
+/** 新闻事实提炼 */
+export interface NewsFacts {
+  headline?: string;
+  who?: string;
+  what?: string;
+  when?: string;
+  where?: string;
+  why?: string;
+  keyQuotes?: string[];
+  mustRetain?: string[];
 }
 
 /** 创意方案 */
@@ -49,12 +65,14 @@ export interface InspirationProposal {
   reasoning: string;
   visualStyle: string;
   bgmStyle: string;
+  newsFacts?: NewsFacts;
   roughScript: RoughScript;
 }
 
 /** 素材信息（与 scriptApi 保持一致）*/
 export interface AssetInfo {
   file_path: string;
+  name?: string;
   url?: string;
   file_type: 'image' | 'video';
   description: string | null;
@@ -147,7 +165,9 @@ export async function generateProposals(
   analysisResult: EmotionAnalysis,
   assets: AssetInfo[],
   userPrompt: string,
-  generationMode?: string
+  generationMode?: string,
+  newsArticle?: string,
+  publishGoal?: string
 ): Promise<{ success: boolean; data?: { proposals: InspirationProposal[] }; error?: string }> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/inspiration/generate`, {
@@ -159,7 +179,9 @@ export async function generateProposals(
         analysisResult,
         assets,
         userPrompt,
-        generationMode
+        generationMode,
+        newsArticle,
+        publishGoal,
       })
     });
 

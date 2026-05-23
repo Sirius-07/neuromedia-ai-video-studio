@@ -2,6 +2,13 @@ import axios from 'axios';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import {
+  COMFYUI_API_URL,
+  COMFYUI_INPUT_DIR,
+  COMFYUI_OUTPUT_DIR,
+  ENABLE_COMFYUI,
+  toPublicUrl,
+} from '../config/serverConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,16 +19,26 @@ const __dirname = path.dirname(__filename);
  */
 class ComfyUIService {
   // ComfyUI API 配置
-  static COMFYUI_API_URL = 'http://localhost:8188';
+  static COMFYUI_API_URL = COMFYUI_API_URL;
   
   // 工作流配置文件路径
   static WORKFLOW_PATH = path.join(__dirname, '../../../video_wan2_2_14B_i2v (2).json');
     
   // ComfyUI输入目录
-  static COMFYUI_INPUT_DIR = 'F:/ComfyUI_windows_portable/ComfyUI/input';
+  static COMFYUI_INPUT_DIR = COMFYUI_INPUT_DIR;
   
   // ComfyUI输出目录
-  static COMFYUI_OUTPUT_DIR = 'F:/ComfyUI_windows_portable/ComfyUI/output';
+  static COMFYUI_OUTPUT_DIR = COMFYUI_OUTPUT_DIR;
+
+  static assertEnabled() {
+    if (!ENABLE_COMFYUI) {
+      throw new Error('ComfyUI is disabled. Set ENABLE_COMFYUI=true to enable this feature.');
+    }
+
+    if (!this.COMFYUI_INPUT_DIR) {
+      throw new Error('COMFYUI_INPUT_DIR is not configured.');
+    }
+  }
 
   /**
    * 生成首尾帧转场视频
@@ -45,6 +62,7 @@ class ComfyUIService {
     height = 640,
   }) {
     try {
+      this.assertEnabled();
       console.log('[ComfyUI Service] 开始生成转场视频...');
 
       // 1. 保存首帧图片到ComfyUI input目录
@@ -76,7 +94,7 @@ class ComfyUIService {
       console.log('[ComfyUI Service] 视频生成完成:', videoFilename);
 
       // 6. 返回视频URL
-      const videoUrl = `http://localhost:3000/comfyui/output/${videoFilename}`;
+      const videoUrl = toPublicUrl(`/comfyui/output/${videoFilename}`);
       return { videoUrl };
     } catch (error) {
       console.error('[ComfyUI Service] 生成失败:', error);
@@ -91,6 +109,7 @@ class ComfyUIService {
    */
   static async saveImageToComfyUI(imageUrl, filename) {
     try {
+      this.assertEnabled();
       let imageBuffer;
 
       if (imageUrl.startsWith('data:image/')) {

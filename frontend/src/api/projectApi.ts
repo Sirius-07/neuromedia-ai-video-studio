@@ -5,9 +5,10 @@
  */
 
 import { createLogger } from '../utils/logger';
+import { apiUrl } from '../config/api';
 
 const log = createLogger('projectApi');
-const API_BASE_URL = 'http://localhost:3000/api/v1/project';
+const API_BASE_URL = apiUrl('/api/v1/project');
 
 export interface Project {
   id: string;
@@ -136,6 +137,15 @@ export async function saveStoryboard(projectId: string, storyboardData: {
   userPrompt?: string;
   uploadedAssets?: any[];
   generationMode?: string;
+  assetTheme?: string;
+  selectedProposal?: any;
+  proposalAlternatives?: any[];
+  publishGoal?: string;
+  inputMode?: string;
+  aspectRatio?: string;
+  artStyle?: string;
+  flowVersion?: string;
+  creationIntent?: any;
 }): Promise<{ success: boolean; data?: Project; error?: string }> {
   try {
     log.verbose('🎬 保存分镜数据:', projectId);
